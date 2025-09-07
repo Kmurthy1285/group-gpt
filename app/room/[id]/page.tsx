@@ -13,7 +13,9 @@ export default function RoomPage() {
   const [name, setName] = useState("");
   const [showNameInput, setShowNameInput] = useState(false);
   const [tempName, setTempName] = useState("");
+  const [typingUsers, setTypingUsers] = useState<string[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => { 
     const savedName = localStorage.getItem("displayName");
@@ -55,6 +57,18 @@ export default function RoomPage() {
             bottomRef.current?.scrollIntoView({ behavior: "smooth" });
           }, 100);
         })
+        .on("broadcast", { event: "typing" }, (payload) => {
+          const { user_name, is_typing } = payload.payload;
+          if (user_name !== name) { // Don't show our own typing
+            setTypingUsers(prev => {
+              if (is_typing) {
+                return prev.includes(user_name) ? prev : [...prev, user_name];
+              } else {
+                return prev.filter(user => user !== user_name);
+              }
+            });
+          }
+        })
         .subscribe((status) => {
           console.log('Subscription status:', status);
         });
@@ -71,14 +85,71 @@ export default function RoomPage() {
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages.length]);
 
+  // Cleanup typing indicator on unmount
+  useEffect(() => {
+    return () => {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+      // Send stop typing event when component unmounts
+      if (name) {
+        sendTypingEvent(false);
+      }
+    };
+  }, [name]);
+
   const send = async () => {
     const text = input.trim();
     if (!text) return;
     setInput("");
+    
+    // Stop typing indicator when sending message
+    sendTypingEvent(false);
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+    
     await fetch(`/api/rooms/${id}/send`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ user_name: name, content: text }) });
   };
 
   const sendEnter = (e: React.KeyboardEvent<HTMLInputElement>) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } };
+
+  // Typing indicator functions
+  const sendTypingEvent = (isTyping: boolean) => {
+    if (!name) return;
+    const channel = sb.channel(`room:${id}`);
+    channel.send({
+      type: 'broadcast',
+      event: 'typing',
+      payload: { user_name: name, is_typing: isTyping }
+    });
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setInput(value);
+    
+    // Send typing start event
+    if (value.length > 0) {
+      sendTypingEvent(true);
+      
+      // Clear existing timeout
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+      
+      // Set timeout to stop typing after 2 seconds of inactivity
+      typingTimeoutRef.current = setTimeout(() => {
+        sendTypingEvent(false);
+      }, 2000);
+    } else {
+      // If input is empty, stop typing immediately
+      sendTypingEvent(false);
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+    }
+  };
 
   const handleNameSubmit = () => {
     if (tempName.trim()) {
@@ -282,6 +353,59 @@ export default function RoomPage() {
               </div>
             );
           })}
+          
+          {/* Typing Indicator */}
+          {typingUsers.length > 0 && (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '8px 16px',
+              backgroundColor: 'var(--bg-secondary)',
+              borderRadius: '18px',
+              marginTop: '8px',
+              alignSelf: 'flex-start',
+              maxWidth: '200px'
+            }}>
+              <div style={{
+                display: 'flex',
+                gap: '2px'
+              }}>
+                <div style={{
+                  width: '6px',
+                  height: '6px',
+                  backgroundColor: 'var(--text-secondary)',
+                  borderRadius: '50%',
+                  animation: 'typing 1.4s infinite ease-in-out'
+                }} />
+                <div style={{
+                  width: '6px',
+                  height: '6px',
+                  backgroundColor: 'var(--text-secondary)',
+                  borderRadius: '50%',
+                  animation: 'typing 1.4s infinite ease-in-out 0.2s'
+                }} />
+                <div style={{
+                  width: '6px',
+                  height: '6px',
+                  backgroundColor: 'var(--text-secondary)',
+                  borderRadius: '50%',
+                  animation: 'typing 1.4s infinite ease-in-out 0.4s'
+                }} />
+              </div>
+              <span style={{
+                fontSize: '12px',
+                color: 'var(--text-secondary)',
+                fontStyle: 'italic'
+              }}>
+                {typingUsers.length === 1 
+                  ? `${typingUsers[0]} is typing...`
+                  : `${typingUsers.length} people are typing...`
+                }
+              </span>
+            </div>
+          )}
+          
           <div ref={bottomRef} />
         </div>
         
@@ -308,7 +432,7 @@ export default function RoomPage() {
               maxHeight: '120px'
             }}
             value={input} 
-            onChange={e=>setInput(e.target.value)} 
+            onChange={handleInputChange} 
             onKeyDown={sendEnter} 
             placeholder="Type a message…" 
           />
