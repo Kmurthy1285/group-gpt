@@ -1,0 +1,2 @@
+# This file ensures the public directory is tracked by git
+# Next.js App Router projects may not need static files, but Vercel expects this directory
