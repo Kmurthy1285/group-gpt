@@ -22,9 +22,6 @@ export default function RoomPage() {
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    // Reset messages loaded flag when room ID changes
-    setMessagesLoaded(false);
-    
     const checkAuth = async () => {
       const { user } = await getCurrentUser();
       if (!user) {
@@ -85,44 +82,25 @@ export default function RoomPage() {
       }
       
       setIsParticipant(true);
+      
+      // Load messages here, only once when auth is complete
+      try {
+        console.log('Loading messages for room:', id);
+        const { data } = await sb.from("messages").select("*").eq("room_id", id).order("created_at", { ascending: true });
+        setMessages((data as any) || []);
+        setMessagesLoaded(true);
+        console.log('Messages loaded successfully, count:', data?.length || 0);
+      } catch (error) {
+        console.error('Error loading messages:', error);
+      }
+      
       setLoading(false);
     };
     
     checkAuth();
   }, [id, router, sb]);
 
-  // Load history (realtime disabled temporarily to fix CHANNEL_ERROR)
-  useEffect(() => {
-    console.log('useEffect triggered - id:', id, 'user:', user?.id, 'isParticipant:', isParticipant, 'messagesLoaded:', messagesLoaded);
-    
-    const loadMessages = async () => {
-      // Only load messages if user is authenticated and is a participant
-      if (!user || !isParticipant) {
-        console.log('Skipping message load - user not authenticated or not participant');
-        return;
-      }
-
-      // Prevent multiple loads for the same room
-      if (messagesLoaded) {
-        console.log('Messages already loaded for this room, skipping');
-        return;
-      }
-
-      try {
-        console.log('Loading messages for room:', id);
-        // Load initial messages
-        const supabase = supabaseClient();
-        const { data } = await supabase.from("messages").select("*").eq("room_id", id).order("created_at", { ascending: true });
-        setMessages((data as any) || []);
-        setMessagesLoaded(true); // Mark as loaded
-        console.log('Messages loaded successfully, count:', data?.length || 0);
-      } catch (error) {
-        console.error('Error loading messages:', error);
-      }
-    };
-    
-    loadMessages();
-  }, [id, user, isParticipant]); // Don't include messagesLoaded in dependencies
+  // Messages are now loaded in the auth check useEffect above
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages.length]);
 
