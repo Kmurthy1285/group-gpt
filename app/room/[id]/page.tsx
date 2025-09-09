@@ -155,8 +155,11 @@ export default function RoomPage() {
           // If this is from the current user, replace any temporary message with same content
           if (newMessage.user_id === user.id) {
             // Remove temporary message and add real message
-            return prev.filter(msg => !(msg.id > 1000000000000 && msg.content === newMessage.content)) // Remove temp messages with same content
-                     .concat(newMessage);
+            const filtered = prev.filter(msg => {
+              // Keep real messages (ID < 1000000000000) or temp messages with different content
+              return msg.id < 1000000000000 || msg.content !== newMessage.content;
+            });
+            return [...filtered, newMessage];
           } else {
             // Add message from other users
             return [...prev, newMessage];
@@ -191,11 +194,22 @@ export default function RoomPage() {
           const latestMessage = data[0];
           setMessages(prev => {
             const exists = prev.some(msg => msg.id === latestMessage.id);
-            if (!exists) {
+            if (exists) return prev;
+            
+            // If this is from the current user, replace any temporary message with same content
+            if (latestMessage.user_id === user.id) {
+              // Remove temporary message and add real message
+              const filtered = prev.filter(msg => {
+                // Keep real messages (ID < 1000000000000) or temp messages with different content
+                return msg.id < 1000000000000 || msg.content !== latestMessage.content;
+              });
+              console.log('Found new message via polling (replacing temp):', latestMessage);
+              return [...filtered, latestMessage];
+            } else {
+              // Add message from other users
               console.log('Found new message via polling:', latestMessage);
               return [...prev, latestMessage];
             }
-            return prev;
           });
         }
       } catch (error) {
