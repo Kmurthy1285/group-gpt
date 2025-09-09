@@ -117,15 +117,15 @@ export default function RoomPage() {
     checkAuth();
   }, [id, router]); // Removed 'sb' from dependencies
 
-  // Set up realtime typing indicators (separate from message loading)
+  // Set up realtime subscriptions (typing + new messages)
   useEffect(() => {
     if (!user || !isParticipant) return;
     
-    console.log('Setting up typing indicators for room:', id);
+    console.log('Setting up realtime subscriptions for room:', id);
     
     const supabase = supabaseClient();
     const channel = supabase
-      .channel(`typing:${id}`)
+      .channel(`room:${id}`)
       .on("broadcast", { event: "typing" }, (payload) => {
         const { user_name, is_typing } = payload.payload;
         if (user_name !== profile?.display_name) { // Don't show our own typing
@@ -138,12 +138,42 @@ export default function RoomPage() {
           });
         }
       })
+      .on("postgres_changes", { 
+        event: "INSERT", 
+        schema: "public", 
+        table: "messages", 
+        filter: `room_id=eq.${id}` 
+      }, (payload) => {
+        console.log('New message received via realtime:', payload.new);
+        const newMessage = payload.new as any;
+        
+        setMessages(prev => {
+          // Check if message already exists to avoid duplicates
+          const exists = prev.some(msg => msg.id === newMessage.id);
+          if (exists) return prev;
+          
+          // If this is from the current user, replace any temporary message with same content
+          if (newMessage.user_id === user.id) {
+            // Remove temporary message and add real message
+            return prev.filter(msg => !(msg.id > 1000000000000 && msg.content === newMessage.content)) // Remove temp messages with same content
+                     .concat(newMessage);
+          } else {
+            // Add message from other users
+            return [...prev, newMessage];
+          }
+        });
+        
+        // Scroll to bottom after a short delay to ensure DOM is updated
+        setTimeout(() => {
+          bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+        }, 100);
+      })
       .subscribe((status) => {
-        console.log('Typing channel status:', status);
+        console.log('Realtime channel status:', status);
       });
 
     return () => {
-      console.log('Cleaning up typing channel');
+      console.log('Cleaning up realtime channel');
       supabase.removeChannel(channel);
     };
   }, [id, user, isParticipant, profile?.display_name]);
@@ -202,11 +232,8 @@ export default function RoomPage() {
         throw new Error('Failed to send message');
       }
       
-      // Optionally reload messages to get the real message with proper ID
-      // This ensures we have the correct message data from the server
-      const supabase = supabaseClient();
-      const { data } = await supabase.from("messages").select("*").eq("room_id", id).order("created_at", { ascending: true });
-      setMessages((data as any) || []);
+      // No need to reload messages - realtime subscription will handle new messages
+      // The temporary message will be replaced by the real message from the server
       
     } catch (error) {
       console.error('Error sending message:', error);
