@@ -76,6 +76,18 @@ export default function RoomPage() {
           if (error) throw error;
           
           setIsParticipant(true);
+          
+          // Load messages after successful auto-join
+          try {
+            console.log('Loading messages for room after auto-join:', id);
+            const { data } = await supabase.from("messages").select("*").eq("room_id", id).order("created_at", { ascending: true });
+            setMessages((data as any) || []);
+            setMessagesLoaded(true);
+            console.log('Messages loaded successfully after auto-join, count:', data?.length || 0);
+          } catch (error) {
+            console.error('Error loading messages after auto-join:', error);
+          }
+          
         } catch (error) {
           console.error('Error joining room:', error);
           // If auto-join fails, show join button
