@@ -294,7 +294,7 @@ export default function RoomPage() {
   };
 
   const handleJoinRoom = async () => {
-    if (!user) return;
+    if (!user || !profile) return;
     
     try {
       const { error } = await sb
@@ -307,6 +307,23 @@ export default function RoomPage() {
       if (error) throw error;
       
       setIsParticipant(true);
+      
+      // Add system message for join
+      try {
+        await fetch(`/api/rooms/${id}/system-message`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "join",
+            user_name: profile.display_name,
+            user_id: user.id
+          })
+        });
+      } catch (systemError) {
+        console.error('Error adding join system message:', systemError);
+        // Don't fail the join if system message fails
+      }
+      
     } catch (error) {
       console.error('Error joining room:', error);
       alert('Failed to join room. Please try again.');
@@ -505,6 +522,30 @@ export default function RoomPage() {
           {messages.map(m => {
             const isCurrentUser = m.user_name === profile?.display_name;
             const isAI = m.role === 'assistant';
+            const isSystem = m.role === 'system';
+            
+            // Special rendering for system messages
+            if (isSystem) {
+              return (
+                <div key={m.id} style={{
+                  display: 'flex',
+                  justifyContent: 'center',
+                  margin: '8px 0'
+                }}>
+                  <div style={{
+                    backgroundColor: 'var(--bg-secondary)',
+                    color: 'var(--text-secondary)',
+                    padding: '6px 12px',
+                    borderRadius: '12px',
+                    fontSize: '13px',
+                    fontStyle: 'italic',
+                    border: '1px solid var(--border-light)'
+                  }}>
+                    {m.content}
+                  </div>
+                </div>
+              );
+            }
             
             return (
               <div key={m.id} style={{

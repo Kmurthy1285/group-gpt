@@ -342,6 +342,22 @@ export default function DashboardPage() {
           
         if (leaveError) throw leaveError;
         
+        // Add system message for leave (only if room isn't being deleted)
+        try {
+          await fetch(`/api/rooms/${roomId}/system-message`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "leave",
+              user_name: profile?.display_name || "Unknown User",
+              user_id: user.id
+            })
+          });
+        } catch (systemError) {
+          console.error('Error adding leave system message:', systemError);
+          // Don't fail the leave if system message fails
+        }
+        
         alert('Left chat successfully.');
       }
       
