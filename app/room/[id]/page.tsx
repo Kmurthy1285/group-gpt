@@ -105,7 +105,36 @@ export default function RoomPage() {
     checkAuth();
   }, [id, router]); // Removed 'sb' from dependencies
 
-  // Messages are now loaded in the auth check useEffect above
+  // Set up realtime typing indicators (separate from message loading)
+  useEffect(() => {
+    if (!user || !isParticipant) return;
+    
+    console.log('Setting up typing indicators for room:', id);
+    
+    const supabase = supabaseClient();
+    const channel = supabase
+      .channel(`typing:${id}`)
+      .on("broadcast", { event: "typing" }, (payload) => {
+        const { user_name, is_typing } = payload.payload;
+        if (user_name !== profile?.display_name) { // Don't show our own typing
+          setTypingUsers(prev => {
+            if (is_typing) {
+              return prev.includes(user_name) ? prev : [...prev, user_name];
+            } else {
+              return prev.filter(user => user !== user_name);
+            }
+          });
+        }
+      })
+      .subscribe((status) => {
+        console.log('Typing channel status:', status);
+      });
+
+    return () => {
+      console.log('Cleaning up typing channel');
+      supabase.removeChannel(channel);
+    };
+  }, [id, user, isParticipant, profile?.display_name]);
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages.length]);
 
@@ -199,8 +228,15 @@ export default function RoomPage() {
 
   // Typing indicator functions
   const sendTypingEvent = (isTyping: boolean) => {
-    // Typing events disabled temporarily to fix CHANNEL_ERROR
-    console.log('Typing event disabled:', isTyping);
+    if (!profile?.display_name) return;
+    
+    const supabase = supabaseClient();
+    const channel = supabase.channel(`typing:${id}`);
+    channel.send({
+      type: 'broadcast',
+      event: 'typing',
+      payload: { user_name: profile.display_name, is_typing: isTyping }
+    });
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
