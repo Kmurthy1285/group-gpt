@@ -209,12 +209,36 @@ export default function DashboardPage() {
         if (!confirmed) return;
         
         // Delete the entire room and all its messages
+        // First delete all messages in the room
+        const { error: messagesError } = await supabase
+          .from('messages')
+          .delete()
+          .eq('room_id', roomId);
+          
+        if (messagesError) {
+          console.error('Error deleting messages:', messagesError);
+        }
+        
+        // Then delete all participants
+        const { error: participantsError } = await supabase
+          .from('room_participants')
+          .delete()
+          .eq('room_id', roomId);
+          
+        if (participantsError) {
+          console.error('Error deleting participants:', participantsError);
+        }
+        
+        // Finally delete the room itself
         const { error: deleteError } = await supabase
           .from('rooms')
           .delete()
           .eq('id', roomId);
           
-        if (deleteError) throw deleteError;
+        if (deleteError) {
+          console.error('Error deleting room:', deleteError);
+          throw deleteError;
+        }
         
         alert('Chat deleted successfully.');
       } else {

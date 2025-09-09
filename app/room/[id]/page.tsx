@@ -58,8 +58,23 @@ export default function RoomPage() {
         .single();
         
       if (!participant) {
-        // User is not a participant, show join option
-        setIsParticipant(false);
+        // User is not a participant, auto-join them (for invite links)
+        try {
+          const { error } = await sb
+            .from('room_participants')
+            .insert({
+              room_id: id,
+              user_id: user.id
+            });
+
+          if (error) throw error;
+          
+          setIsParticipant(true);
+        } catch (error) {
+          console.error('Error joining room:', error);
+          // If auto-join fails, show join button
+          setIsParticipant(false);
+        }
         setRoom(roomData);
         setLoading(false);
         return;
