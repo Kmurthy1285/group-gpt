@@ -248,8 +248,8 @@ export default function DashboardPage() {
         alert('Left chat successfully.');
       }
       
-      // Reload the rooms list
-      await loadRooms(user.id);
+      // Update the rooms list immediately by removing the room from state
+      setRooms(prevRooms => prevRooms.filter(room => room.id !== roomId));
       setLastLoadTime(Date.now());
       
     } catch (error) {
@@ -540,44 +540,50 @@ export default function DashboardPage() {
                           </span>
                         </div>
                         
-                        <p style={{
-                          fontSize: '13px',
-                          color: '#6b7280',
-                          margin: 0
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between'
                         }}>
-                          {participantCount} {participantCount === 1 ? 'person' : 'people'}
-                          {displayParticipants && ` • ${displayParticipants}`}
-                        </p>
+                          <p style={{
+                            fontSize: '13px',
+                            color: '#6b7280',
+                            margin: 0
+                          }}>
+                            {participantCount} {participantCount === 1 ? 'person' : 'people'}
+                            {displayParticipants && ` • ${displayParticipants}`}
+                          </p>
+                          
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              leaveRoom(room.id, room.name);
+                            }}
+                            style={{
+                              padding: '4px 8px',
+                              borderRadius: '4px',
+                              backgroundColor: 'transparent',
+                              color: '#ef4444',
+                              border: '1px solid #fecaca',
+                              fontSize: '10px',
+                              fontWeight: '500',
+                              cursor: 'pointer',
+                              transition: 'all 0.2s ease'
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.backgroundColor = '#fef2f2';
+                              e.currentTarget.style.borderColor = '#fca5a5';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.backgroundColor = 'transparent';
+                              e.currentTarget.style.borderColor = '#fecaca';
+                            }}
+                          >
+                            Leave
+                          </button>
+                        </div>
                       </div>
                     </div>
-                    
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        leaveRoom(room.id, room.name);
-                      }}
-                      style={{
-                        padding: '6px 10px',
-                        borderRadius: '6px',
-                        backgroundColor: 'transparent',
-                        color: '#ef4444',
-                        border: '1px solid #fecaca',
-                        fontSize: '11px',
-                        fontWeight: '500',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s ease'
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = '#fef2f2';
-                        e.currentTarget.style.borderColor = '#fca5a5';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = 'transparent';
-                        e.currentTarget.style.borderColor = '#fecaca';
-                      }}
-                    >
-                      Leave
-                    </button>
                   </div>
                 );
               })}
