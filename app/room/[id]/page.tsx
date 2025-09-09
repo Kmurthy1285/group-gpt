@@ -95,7 +95,7 @@ export default function RoomPage() {
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
                 action: "join",
-                user_name: profile.display_name,
+                user_name: profileData?.display_name || "Unknown User",
                 user_id: user.id
               })
             });
@@ -337,7 +337,7 @@ export default function RoomPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             action: "join",
-            user_name: profile.display_name,
+            user_name: profile?.display_name || "Unknown User",
             user_id: user.id
           })
         });
