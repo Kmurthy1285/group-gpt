@@ -23,11 +23,12 @@ export async function signInWithGoogle() {
   
   console.log('Current origin:', typeof window !== 'undefined' ? window.location.origin : 'server-side');
   
-  // Let Supabase handle the redirect automatically
-  // This should use the configured redirect URL in Supabase settings
+  // Force the redirect to use the current production URL
   const { data, error } = await supabase.auth.signInWithOAuth({
-    provider: 'google'
-    // Removed custom redirectTo to let Supabase handle it
+    provider: 'google',
+    options: {
+      redirectTo: typeof window !== 'undefined' ? window.location.origin : 'https://group-gpt-eta.vercel.app'
+    }
   });
   return { data, error };
 }
