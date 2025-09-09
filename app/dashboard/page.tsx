@@ -270,33 +270,33 @@ export default function DashboardPage() {
         alignItems: 'center',
         justifyContent: 'center',
         minHeight: '100vh',
-        background: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 50%, #f0fdf4 100%)'
+        backgroundColor: '#f9fafb'
       }}>
         <div style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          padding: '60px',
-          backgroundColor: 'rgba(255, 255, 255, 0.6)',
-          borderRadius: '16px',
-          backdropFilter: 'blur(10px)',
-          border: '1px solid rgba(255, 255, 255, 0.2)'
+          padding: '40px',
+          backgroundColor: 'white',
+          borderRadius: '12px',
+          border: '1px solid #e5e7eb',
+          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
         }}>
           <div style={{
-            width: '32px',
-            height: '32px',
-            border: '3px solid #e0f2fe',
-            borderTop: '3px solid #3b82f6',
+            width: '24px',
+            height: '24px',
+            border: '2px solid #e5e7eb',
+            borderTop: '2px solid #3b82f6',
             borderRadius: '50%',
             animation: 'spin 1s linear infinite',
-            marginRight: '16px'
+            marginRight: '12px'
           }} />
           <span style={{
-            fontSize: '16px',
-            color: '#64748b',
+            fontSize: '14px',
+            color: '#6b7280',
             fontWeight: '500'
           }}>
-            Loading your chats...
+            Loading...
           </span>
         </div>
       </div>
@@ -306,11 +306,11 @@ export default function DashboardPage() {
   return (
     <div style={{
       minHeight: '100vh',
-      background: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 50%, #f0fdf4 100%)',
-      padding: '20px'
+      backgroundColor: '#f9fafb',
+      padding: '16px'
     }}>
       <div style={{
-        maxWidth: '900px',
+        maxWidth: '600px',
         margin: '0 auto'
       }}>
         {/* Header */}
@@ -318,32 +318,28 @@ export default function DashboardPage() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          marginBottom: '32px',
-          padding: '24px',
-          backgroundColor: 'rgba(255, 255, 255, 0.8)',
-          borderRadius: '16px',
-          backdropFilter: 'blur(10px)',
-          border: '1px solid rgba(255, 255, 255, 0.2)',
-          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
+          marginBottom: '20px',
+          padding: '16px 20px',
+          backgroundColor: 'white',
+          borderRadius: '12px',
+          border: '1px solid #e5e7eb',
+          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
         }}>
           <div>
             <h1 style={{
-              fontSize: '24px',
-              fontWeight: '700',
-              color: '#1e40af',
-              margin: '0 0 4px 0',
-              background: 'linear-gradient(135deg, #1e40af, #3b82f6)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent'
+              fontSize: '18px',
+              fontWeight: '600',
+              color: '#1f2937',
+              margin: '0 0 2px 0'
             }}>
-              Welcome back, {profile?.display_name || 'User'}! 👋
+              Messages
             </h1>
             <p style={{
-              fontSize: '14px',
-              color: '#64748b',
+              fontSize: '12px',
+              color: '#6b7280',
               margin: 0
             }}>
-              Ready to start a new conversation?
+              {profile?.display_name || 'User'}
             </p>
           </div>
           
@@ -353,75 +349,48 @@ export default function DashboardPage() {
             alignItems: 'center'
           }}>
             <button
-              onClick={refreshRooms}
-              style={{
-                padding: '10px 16px',
-                borderRadius: '10px',
-                backgroundColor: 'rgba(255, 255, 255, 0.6)',
-                color: '#64748b',
-                fontSize: '14px',
-                fontWeight: '500',
-                border: '1px solid rgba(100, 116, 139, 0.2)',
-                cursor: 'pointer',
-                transition: 'all 0.2s ease'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.8)';
-                e.currentTarget.style.color = '#475569';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.6)';
-                e.currentTarget.style.color = '#64748b';
-              }}
-            >
-              🔄 Refresh
-            </button>
-            <button
               onClick={() => setShowCreateModal(true)}
               style={{
-                padding: '12px 24px',
-                borderRadius: '12px',
-                background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
+                padding: '10px 20px',
+                borderRadius: '20px',
+                background: '#3b82f6',
                 color: 'white',
-                fontSize: '16px',
-                fontWeight: '600',
+                fontSize: '14px',
+                fontWeight: '500',
                 border: 'none',
                 cursor: 'pointer',
-                boxShadow: '0 4px 16px rgba(59, 130, 246, 0.3)',
                 transition: 'all 0.2s ease'
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'translateY(-2px)';
-                e.currentTarget.style.boxShadow = '0 6px 20px rgba(59, 130, 246, 0.4)';
+                e.currentTarget.style.backgroundColor = '#2563eb';
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = '0 4px 16px rgba(59, 130, 246, 0.3)';
+                e.currentTarget.style.backgroundColor = '#3b82f6';
               }}
             >
-              ✨ New Chat
+              + New Chat
             </button>
             
             <button
               onClick={handleSignOut}
               style={{
-                padding: '10px 16px',
-                borderRadius: '10px',
-                backgroundColor: 'rgba(255, 255, 255, 0.6)',
-                color: '#64748b',
-                fontSize: '14px',
+                padding: '8px 12px',
+                borderRadius: '8px',
+                backgroundColor: 'transparent',
+                color: '#6b7280',
+                fontSize: '12px',
                 fontWeight: '500',
-                border: '1px solid rgba(100, 116, 139, 0.2)',
+                border: '1px solid #e5e7eb',
                 cursor: 'pointer',
                 transition: 'all 0.2s ease'
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.8)';
-                e.currentTarget.style.color = '#475569';
+                e.currentTarget.style.backgroundColor = '#f9fafb';
+                e.currentTarget.style.color = '#374151';
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.6)';
-                e.currentTarget.style.color = '#64748b';
+                e.currentTarget.style.backgroundColor = 'transparent';
+                e.currentTarget.style.color = '#6b7280';
               }}
             >
               Sign Out
@@ -431,79 +400,69 @@ export default function DashboardPage() {
 
         {/* Rooms List */}
         <div>
-          <h2 style={{
-            fontSize: '20px',
-            fontWeight: '600',
-            color: '#1e40af',
-            marginBottom: '20px',
-            paddingLeft: '8px'
-          }}>
-            Your Conversations 💬
-          </h2>
           
           {rooms.length === 0 ? (
             <div style={{
               textAlign: 'center',
-              padding: '60px 40px',
-              backgroundColor: 'rgba(255, 255, 255, 0.7)',
-              borderRadius: '20px',
-              backdropFilter: 'blur(10px)',
-              border: '2px dashed rgba(59, 130, 246, 0.3)',
-              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
+              padding: '40px 20px',
+              backgroundColor: 'white',
+              borderRadius: '12px',
+              border: '1px solid #e5e7eb',
+              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
             }}>
               <div style={{
-                fontSize: '64px',
-                marginBottom: '20px'
+                fontSize: '32px',
+                marginBottom: '12px'
               }}>
-                💭
+                💬
               </div>
               <h3 style={{
-                fontSize: '22px',
-                fontWeight: '700',
-                color: '#1e40af',
-                marginBottom: '12px'
+                fontSize: '16px',
+                fontWeight: '600',
+                color: '#1f2937',
+                marginBottom: '8px'
               }}>
                 No conversations yet
               </h3>
               <p style={{
-                fontSize: '16px',
-                color: '#64748b',
-                marginBottom: '24px',
-                lineHeight: '1.5'
+                fontSize: '14px',
+                color: '#6b7280',
+                marginBottom: '16px'
               }}>
-                Start your first group chat and invite friends to collaborate!
+                Start your first group chat
               </p>
               <button
                 onClick={() => setShowCreateModal(true)}
                 style={{
-                  padding: '16px 32px',
-                  borderRadius: '12px',
-                  background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
+                  padding: '10px 20px',
+                  borderRadius: '20px',
+                  background: '#3b82f6',
                   color: 'white',
-                  fontSize: '16px',
-                  fontWeight: '600',
+                  fontSize: '14px',
+                  fontWeight: '500',
                   border: 'none',
                   cursor: 'pointer',
-                  boxShadow: '0 4px 16px rgba(59, 130, 246, 0.3)',
                   transition: 'all 0.2s ease'
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = 'translateY(-2px)';
-                  e.currentTarget.style.boxShadow = '0 6px 20px rgba(59, 130, 246, 0.4)';
+                  e.currentTarget.style.backgroundColor = '#2563eb';
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = 'translateY(0)';
-                  e.currentTarget.style.boxShadow = '0 4px 16px rgba(59, 130, 246, 0.3)';
+                  e.currentTarget.style.backgroundColor = '#3b82f6';
                 }}
               >
-                ✨ Create Your First Chat
+                + New Chat
               </button>
             </div>
           ) : (
             <div style={{
-              display: 'grid',
-              gap: '20px',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(400px, 1fr))'
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '1px',
+              backgroundColor: '#f9fafb',
+              borderRadius: '12px',
+              overflow: 'hidden',
+              border: '1px solid #e5e7eb'
             }}>
               {rooms.map(room => {
                 const participantNames = room.participants?.map(p => p.user_profiles?.display_name).filter(Boolean) || [];
@@ -516,128 +475,109 @@ export default function DashboardPage() {
                   <div
                     key={room.id}
                     style={{
-                      backgroundColor: 'rgba(255, 255, 255, 0.8)',
-                      borderRadius: '16px',
-                      padding: '24px',
-                      backdropFilter: 'blur(10px)',
-                      border: '1px solid rgba(255, 255, 255, 0.2)',
-                      boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
-                      transition: 'all 0.3s ease',
-                      cursor: 'pointer'
+                      backgroundColor: 'white',
+                      padding: '16px 20px',
+                      borderBottom: '1px solid #f3f4f6',
+                      transition: 'all 0.2s ease',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between'
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.transform = 'translateY(-4px)';
-                      e.currentTarget.style.boxShadow = '0 12px 40px rgba(0, 0, 0, 0.15)';
-                      e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.9)';
+                      e.currentTarget.style.backgroundColor = '#f9fafb';
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.transform = 'translateY(0)';
-                      e.currentTarget.style.boxShadow = '0 8px 32px rgba(0, 0, 0, 0.1)';
-                      e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.8)';
+                      e.currentTarget.style.backgroundColor = 'white';
                     }}
                     onClick={() => router.push(`/room/${room.id}`)}
                   >
-                    <div style={{
-                      display: 'flex',
-                      alignItems: 'flex-start',
-                      justifyContent: 'space-between',
-                      marginBottom: '16px'
+                    <div style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: '12px',
+                      flex: 1
                     }}>
+                      {/* Avatar placeholder */}
+                      <div style={{
+                        width: '40px',
+                        height: '40px',
+                        borderRadius: '50%',
+                        backgroundColor: '#3b82f6',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: 'white',
+                        fontSize: '16px',
+                        fontWeight: '600'
+                      }}>
+                        {room.name.charAt(0).toUpperCase()}
+                      </div>
+                      
                       <div style={{ flex: 1 }}>
-                        <h3 style={{
-                          fontSize: '18px',
-                          fontWeight: '700',
-                          color: '#1e40af',
-                          margin: '0 0 8px 0',
-                          lineHeight: '1.3'
-                        }}>
-                          {room.name}
-                        </h3>
-                        
-                        {/* Participants */}
                         <div style={{
                           display: 'flex',
                           alignItems: 'center',
-                          gap: '6px',
-                          marginBottom: '12px'
+                          justifyContent: 'space-between',
+                          marginBottom: '4px'
                         }}>
+                          <h3 style={{
+                            fontSize: '16px',
+                            fontWeight: '500',
+                            color: '#1f2937',
+                            margin: 0
+                          }}>
+                            {room.name}
+                          </h3>
                           <span style={{
                             fontSize: '12px',
-                            color: '#64748b',
-                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                            padding: '4px 8px',
-                            borderRadius: '8px',
-                            fontWeight: '500'
+                            color: '#9ca3af'
                           }}>
-                            👥 {participantCount} {participantCount === 1 ? 'person' : 'people'}
+                            {room.last_message_at 
+                              ? new Date(room.last_message_at).toLocaleDateString()
+                              : new Date(room.created_at).toLocaleDateString()
+                            }
                           </span>
                         </div>
                         
-                        {displayParticipants && (
-                          <p style={{
-                            fontSize: '13px',
-                            color: '#64748b',
-                            margin: '0 0 12px 0',
-                            fontStyle: 'italic'
-                          }}>
-                            {displayParticipants}
-                          </p>
-                        )}
+                        <p style={{
+                          fontSize: '13px',
+                          color: '#6b7280',
+                          margin: 0
+                        }}>
+                          {participantCount} {participantCount === 1 ? 'person' : 'people'}
+                          {displayParticipants && ` • ${displayParticipants}`}
+                        </p>
                       </div>
-                      
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          leaveRoom(room.id, room.name);
-                        }}
-                        style={{
-                          padding: '8px 12px',
-                          borderRadius: '8px',
-                          backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                          color: '#dc2626',
-                          border: '1px solid rgba(239, 68, 68, 0.2)',
-                          fontSize: '12px',
-                          fontWeight: '500',
-                          cursor: 'pointer',
-                          transition: 'all 0.2s ease'
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.2)';
-                          e.currentTarget.style.color = '#b91c1c';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.1)';
-                          e.currentTarget.style.color = '#dc2626';
-                        }}
-                      >
-                        Leave
-                      </button>
                     </div>
                     
-                    {room.last_message && (
-                      <p style={{
-                        fontSize: '14px',
-                        color: '#475569',
-                        marginBottom: '12px',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                        lineHeight: '1.4'
-                      }}>
-                        💬 {room.last_message}
-                      </p>
-                    )}
-                    
-                    <div style={{
-                      fontSize: '12px',
-                      color: '#94a3b8',
-                      fontWeight: '500'
-                    }}>
-                      {room.last_message_at 
-                        ? `Last active ${new Date(room.last_message_at).toLocaleDateString()}`
-                        : `Created ${new Date(room.created_at).toLocaleDateString()}`
-                      }
-                    </div>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        leaveRoom(room.id, room.name);
+                      }}
+                      style={{
+                        padding: '6px 10px',
+                        borderRadius: '6px',
+                        backgroundColor: 'transparent',
+                        color: '#ef4444',
+                        border: '1px solid #fecaca',
+                        fontSize: '11px',
+                        fontWeight: '500',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = '#fef2f2';
+                        e.currentTarget.style.borderColor = '#fca5a5';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'transparent';
+                        e.currentTarget.style.borderColor = '#fecaca';
+                      }}
+                    >
+                      Leave
+                    </button>
                   </div>
                 );
               })}
