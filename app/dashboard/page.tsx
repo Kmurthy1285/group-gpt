@@ -51,11 +51,14 @@ export default function DashboardPage() {
       const { data: profileData } = await getUserProfile(user.id);
       setProfile(profileData);
       
-      // Only load rooms if we don't have them or they're stale (older than 2 minutes)
+      // Only load rooms if we don't have them or they're stale (older than 5 minutes)
       const now = Date.now();
-      if (rooms.length === 0 || (now - lastLoadTime) > 120000) {
+      if (rooms.length === 0 || (now - lastLoadTime) > 300000) {
+        console.log('Loading rooms - cache miss or stale');
         await loadRooms(user.id);
         setLastLoadTime(now);
+      } else {
+        console.log('Using cached rooms');
       }
       setLoading(false);
     };
@@ -64,88 +67,141 @@ export default function DashboardPage() {
   }, [router]);
 
   const loadRooms = async (userId: string) => {
+    console.log('Loading rooms for user:', userId);
+    const startTime = Date.now();
+    
     const supabase = supabaseClient();
     
-    // Get all data in a single optimized query
-    const { data: participantRooms } = await supabase
-      .from('room_participants')
-      .select(`
-        room_id,
-        rooms (
-          id,
-          name,
-          created_at,
-          created_by
-        )
-      `)
-      .eq('user_id', userId);
+    try {
+      // Add timeout to prevent hanging
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Query timeout')), 10000)
+      );
+      
+      // Get rooms with basic info only - no messages or participants initially
+      const roomsQuery = supabase
+        .from('room_participants')
+        .select(`
+          room_id,
+          rooms (
+            id,
+            name,
+            created_at,
+            created_by
+          )
+        `)
+        .eq('user_id', userId);
+        
+      const { data: participantRooms, error: roomsError } = await Promise.race([
+        roomsQuery,
+        timeoutPromise
+      ]) as any;
 
-    if (!participantRooms || participantRooms.length === 0) {
-      setRooms([]);
-      return;
-    }
-
-    // Convert to array of rooms
-    const allRooms = participantRooms?.map((participant: any) => participant.rooms).filter(Boolean) || [];
-    const roomIds = allRooms.map(room => room.id);
-
-    // Get all messages for all rooms in one query
-    const { data: allMessages } = await supabase
-      .from('messages')
-      .select('room_id, content, created_at')
-      .in('room_id', roomIds)
-      .order('created_at', { ascending: false });
-
-    // Get all participants for all rooms in one query
-    const { data: allParticipants } = await supabase
-      .from('room_participants')
-      .select(`
-        room_id,
-        user_id,
-        user_profiles (
-          display_name
-        )
-      `)
-      .in('room_id', roomIds);
-
-    // Group messages by room_id and get the latest message for each room
-    const messagesByRoom = allMessages?.reduce((acc, message) => {
-      if (!acc[message.room_id]) {
-        acc[message.room_id] = message;
+      if (roomsError) {
+        console.error('Error loading rooms:', roomsError);
+        return;
       }
-      return acc;
-    }, {} as Record<string, any>) || {};
 
-    // Group participants by room_id
-    const participantsByRoom = allParticipants?.reduce((acc, participant) => {
-      if (!acc[participant.room_id]) {
-        acc[participant.room_id] = [];
+      if (!participantRooms || participantRooms.length === 0) {
+        console.log('No rooms found');
+        setRooms([]);
+        return;
       }
-      acc[participant.room_id].push(participant);
-      return acc;
-    }, {} as Record<string, any[]>) || {};
 
-    // Build the final rooms array
-    const roomsWithStats = allRooms.map(room => {
-      const lastMessage = messagesByRoom[room.id];
-      const participants = participantsByRoom[room.id] || [];
-
-      return {
+      console.log('Found rooms:', participantRooms.length);
+      
+      // Convert to array of rooms
+      const allRooms = participantRooms?.map((participant: any) => participant.rooms).filter(Boolean) || [];
+      
+      // For now, just show rooms without message stats to make it fast
+      const roomsWithBasicInfo = allRooms.map(room => ({
         ...room,
-        message_count: lastMessage ? 1 : 0,
-        last_message: lastMessage?.content,
-        last_message_at: lastMessage?.created_at,
-        participants: participants
-      };
-    });
+        message_count: 0,
+        last_message: null,
+        last_message_at: null,
+        participants: []
+      }));
 
-    // Sort by last activity
-    roomsWithStats.sort((a, b) => 
-      new Date(b.last_message_at || b.created_at).getTime() - 
-      new Date(a.last_message_at || a.created_at).getTime()
-    );
+      // Sort by creation date
+      roomsWithBasicInfo.sort((a, b) => 
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
 
-    setRooms(roomsWithStats);
+      console.log('Setting rooms, took:', Date.now() - startTime, 'ms');
+      setRooms(roomsWithBasicInfo);
+      
+      // Load message stats and participants in background (non-blocking)
+      loadRoomStatsInBackground(allRooms);
+      
+    } catch (error) {
+      console.error('Error in loadRooms:', error);
+    }
+  };
+
+  const loadRoomStatsInBackground = async (rooms: any[]) => {
+    console.log('Loading room stats in background for', rooms.length, 'rooms');
+    const startTime = Date.now();
+    
+    const supabase = supabaseClient();
+    const roomIds = rooms.map(room => room.id);
+
+    try {
+      // Get latest message for each room (limit to 1 per room)
+      const { data: latestMessages } = await supabase
+        .from('messages')
+        .select('room_id, content, created_at')
+        .in('room_id', roomIds)
+        .order('created_at', { ascending: false });
+
+      // Get participants for all rooms
+      const { data: allParticipants } = await supabase
+        .from('room_participants')
+        .select(`
+          room_id,
+          user_id,
+          user_profiles (
+            display_name
+          )
+        `)
+        .in('room_id', roomIds);
+
+      // Group data
+      const messagesByRoom = latestMessages?.reduce((acc, message) => {
+        if (!acc[message.room_id]) {
+          acc[message.room_id] = message;
+        }
+        return acc;
+      }, {} as Record<string, any>) || {};
+
+      const participantsByRoom = allParticipants?.reduce((acc, participant) => {
+        if (!acc[participant.room_id]) {
+          acc[participant.room_id] = [];
+        }
+        acc[participant.room_id].push(participant);
+        return acc;
+      }, {} as Record<string, any[]>) || {};
+
+      // Update rooms with stats
+      setRooms(prevRooms => 
+        prevRooms.map(room => {
+          const lastMessage = messagesByRoom[room.id];
+          const participants = participantsByRoom[room.id] || [];
+
+          return {
+            ...room,
+            message_count: lastMessage ? 1 : 0,
+            last_message: lastMessage?.content,
+            last_message_at: lastMessage?.created_at,
+            participants: participants
+          };
+        })
+      );
+
+      console.log('Background stats loaded in:', Date.now() - startTime, 'ms');
+      
+    } catch (error) {
+      console.error('Error loading room stats:', error);
+    }
   };
 
   const refreshRooms = async () => {
