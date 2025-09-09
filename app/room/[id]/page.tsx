@@ -77,6 +77,23 @@ export default function RoomPage() {
           
           setIsParticipant(true);
           
+          // Add system message for auto-join
+          try {
+            await fetch(`/api/rooms/${id}/system-message`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                action: "join",
+                user_name: profile.display_name,
+                user_id: user.id
+              })
+            });
+            console.log('Join system message created for auto-join');
+          } catch (systemError) {
+            console.error('Error adding join system message for auto-join:', systemError);
+            // Don't fail the join if system message fails
+          }
+          
           // Load messages after successful auto-join
           try {
             console.log('Loading messages for room after auto-join:', id);
