@@ -1,10 +1,11 @@
 "use client";
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { signInWithGoogle, getCurrentUser } from "@/lib/supabase";
 
-export default function LoginPage() {
+function LoginPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
 
@@ -13,18 +14,26 @@ export default function LoginPage() {
     const checkAuth = async () => {
       const { user } = await getCurrentUser();
       if (user) {
-        router.push('/dashboard');
+        // Check if there's a redirect URL
+        const redirectTo = searchParams.get('redirect_to');
+        if (redirectTo) {
+          router.push(redirectTo);
+        } else {
+          router.push('/dashboard');
+        }
       } else {
         setCheckingAuth(false);
       }
     };
     checkAuth();
-  }, [router]);
+  }, [router, searchParams]);
 
   const handleGoogleSignIn = async () => {
     setLoading(true);
     try {
-      const { error } = await signInWithGoogle();
+      // Get the redirect URL from query parameters
+      const redirectTo = searchParams.get('redirect_to');
+      const { error } = await signInWithGoogle(redirectTo || undefined);
       if (error) {
         console.error('Sign in error:', error);
         alert('Failed to sign in. Please try again.');
@@ -179,5 +188,28 @@ export default function LoginPage() {
         }
       `}</style>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: '100vh',
+        backgroundColor: 'var(--bg-primary)'
+      }}>
+        <div style={{
+          fontSize: '18px',
+          color: 'var(--text-secondary)'
+        }}>
+          Loading...
+        </div>
+      </div>
+    }>
+      <LoginPageContent />
+    </Suspense>
   );
 }

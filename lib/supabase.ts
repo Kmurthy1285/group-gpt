@@ -18,16 +18,24 @@ export function supabaseService() {
 }
 
 // Auth helper functions
-export async function signInWithGoogle() {
+export async function signInWithGoogle(redirectTo?: string) {
   const supabase = supabaseClient();
   
   console.log('Current origin:', typeof window !== 'undefined' ? window.location.origin : 'server-side');
+  
+  // Build the redirect URL with optional redirect_to parameter
+  let redirectUrl = typeof window !== 'undefined' ? window.location.origin : 'https://group-gpt-eta.vercel.app';
+  if (redirectTo) {
+    redirectUrl += `/auth/callback?redirect_to=${encodeURIComponent(redirectTo)}`;
+  } else {
+    redirectUrl += '/auth/callback';
+  }
   
   // Force the redirect to use the current production URL
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
-      redirectTo: typeof window !== 'undefined' ? window.location.origin : 'https://group-gpt-eta.vercel.app'
+      redirectTo: redirectUrl
     }
   });
   return { data, error };

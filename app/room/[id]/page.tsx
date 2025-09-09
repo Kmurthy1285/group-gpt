@@ -23,7 +23,8 @@ export default function RoomPage() {
     const checkAuth = async () => {
       const { user } = await getCurrentUser();
       if (!user) {
-        router.push('/login');
+        // Redirect to login with the current room URL as redirect parameter
+        router.push(`/login?redirect_to=${encodeURIComponent(`/room/${id}`)}`);
         return;
       }
       

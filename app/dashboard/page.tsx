@@ -159,6 +159,61 @@ export default function DashboardPage() {
     }
   };
 
+  const leaveRoom = async (roomId: string, roomName: string) => {
+    if (!user) return;
+    
+    try {
+      const supabase = supabaseClient();
+      
+      // Check how many participants are in the room
+      const { data: participants, error: participantsError } = await supabase
+        .from('room_participants')
+        .select('user_id')
+        .eq('room_id', roomId);
+        
+      if (participantsError) throw participantsError;
+      
+      const participantCount = participants?.length || 0;
+      
+      // If this is the last person, warn them
+      if (participantCount === 1) {
+        const confirmed = confirm(
+          `You are the last person in "${roomName}". Leaving will permanently delete this chat and all its messages. Are you sure you want to continue?`
+        );
+        
+        if (!confirmed) return;
+        
+        // Delete the entire room and all its messages
+        const { error: deleteError } = await supabase
+          .from('rooms')
+          .delete()
+          .eq('id', roomId);
+          
+        if (deleteError) throw deleteError;
+        
+        alert('Chat deleted successfully.');
+      } else {
+        // Just remove the user from the room
+        const { error: leaveError } = await supabase
+          .from('room_participants')
+          .delete()
+          .eq('room_id', roomId)
+          .eq('user_id', user.id);
+          
+        if (leaveError) throw leaveError;
+        
+        alert('Left chat successfully.');
+      }
+      
+      // Reload the rooms list
+      await loadRooms(user.id);
+      
+    } catch (error) {
+      console.error('Error leaving room:', error);
+      alert('Failed to leave chat. Please try again.');
+    }
+  };
+
   const handleSignOut = async () => {
     await signOut();
     router.push('/login');
@@ -325,13 +380,11 @@ export default function DashboardPage() {
               {rooms.map(room => (
                 <div
                   key={room.id}
-                  onClick={() => router.push(`/room/${room.id}`)}
                   style={{
                     backgroundColor: 'var(--bg-secondary)',
                     borderRadius: 'var(--radius)',
                     padding: '20px',
                     boxShadow: 'var(--shadow-md)',
-                    cursor: 'pointer',
                     transition: 'all 0.2s ease',
                     border: '1px solid transparent'
                   }}
@@ -350,43 +403,83 @@ export default function DashboardPage() {
                     justifyContent: 'space-between',
                     marginBottom: '8px'
                   }}>
-                    <h3 style={{
-                      fontSize: '18px',
-                      fontWeight: '600',
-                      color: 'var(--text-primary)'
-                    }}>
-                      {room.name}
-                    </h3>
-                    <span style={{
-                      fontSize: '12px',
-                      color: 'var(--text-secondary)',
-                      fontFamily: 'monospace'
-                    }}>
-                      {room.id.slice(0, 8)}
-                    </span>
+                    <div 
+                      onClick={() => router.push(`/room/${room.id}`)}
+                      style={{ cursor: 'pointer', flex: 1 }}
+                    >
+                      <h3 style={{
+                        fontSize: '18px',
+                        fontWeight: '600',
+                        color: 'var(--text-primary)',
+                        margin: 0
+                      }}>
+                        {room.name}
+                      </h3>
+                      <span style={{
+                        fontSize: '12px',
+                        color: 'var(--text-secondary)',
+                        fontFamily: 'monospace'
+                      }}>
+                        {room.id.slice(0, 8)}
+                      </span>
+                    </div>
+                    
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        leaveRoom(room.id, room.name);
+                      }}
+                      style={{
+                        padding: '6px 12px',
+                        borderRadius: 'var(--radius-sm)',
+                        backgroundColor: 'transparent',
+                        color: 'var(--text-secondary)',
+                        border: '1px solid var(--border-light)',
+                        fontSize: '12px',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = '#fee2e2';
+                        e.currentTarget.style.color = '#dc2626';
+                        e.currentTarget.style.borderColor = '#fecaca';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'transparent';
+                        e.currentTarget.style.color = 'var(--text-secondary)';
+                        e.currentTarget.style.borderColor = 'var(--border-light)';
+                      }}
+                    >
+                      Leave
+                    </button>
                   </div>
                   
-                  {room.last_message && (
-                    <p style={{
-                      fontSize: '14px',
-                      color: 'var(--text-secondary)',
-                      marginBottom: '8px',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap'
+                  <div 
+                    onClick={() => router.push(`/room/${room.id}`)}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    {room.last_message && (
+                      <p style={{
+                        fontSize: '14px',
+                        color: 'var(--text-secondary)',
+                        marginBottom: '8px',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap'
+                      }}>
+                        {room.last_message}
+                      </p>
+                    )}
+                    
+                    <div style={{
+                      fontSize: '12px',
+                      color: 'var(--text-secondary)'
                     }}>
-                      {room.last_message}
-                    </p>
-                  )}
-                  
-                  <div style={{
-                    fontSize: '12px',
-                    color: 'var(--text-secondary)'
-                  }}>
-                    {room.last_message_at 
-                      ? `Last active ${new Date(room.last_message_at).toLocaleDateString()}`
-                      : `Created ${new Date(room.created_at).toLocaleDateString()}`
-                    }
+                      {room.last_message_at 
+                        ? `Last active ${new Date(room.last_message_at).toLocaleDateString()}`
+                        : `Created ${new Date(room.created_at).toLocaleDateString()}`
+                      }
+                    </div>
                   </div>
                 </div>
               ))}
