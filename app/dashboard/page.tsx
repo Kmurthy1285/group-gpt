@@ -39,6 +39,16 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const checkAuth = async () => {
+      // Clean up any lingering Supabase subscriptions
+      const supabase = supabaseClient();
+      try {
+        // Remove all channels to prevent CHANNEL_ERROR
+        await supabase.removeAllChannels();
+        console.log('Cleaned up all Supabase channels');
+      } catch (error) {
+        console.log('No channels to clean up or error cleaning up:', error);
+      }
+
       const { user } = await getCurrentUser();
       if (!user) {
         router.push('/login');

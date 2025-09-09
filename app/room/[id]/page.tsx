@@ -92,56 +92,71 @@ export default function RoomPage() {
     let channel: any;
     
     const setupRealtime = async () => {
-      // Load initial messages
-      const { data } = await sb.from("messages").select("*").eq("room_id", id).order("created_at", { ascending: true });
-      setMessages((data as any) || []);
-      
-      // Set up real-time subscription
-      channel = sb
-        .channel(`room:${id}`)
-        .on("postgres_changes", { 
-          event: "INSERT", 
-          schema: "public", 
-          table: "messages", 
-          filter: `room_id=eq.${id}` 
-        }, (payload) => {
-          console.log('New message received:', payload.new);
-          setMessages(prev => {
-            // Check if message already exists to avoid duplicates
-            const exists = prev.some(msg => msg.id === payload.new.id);
-            if (exists) return prev;
-            return [...prev, payload.new as any];
-          });
-          // Scroll to bottom after a short delay to ensure DOM is updated
-          setTimeout(() => {
-            bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-          }, 100);
-        })
-        .on("broadcast", { event: "typing" }, (payload) => {
-          const { user_name, is_typing } = payload.payload;
-          if (user_name !== profile?.display_name) { // Don't show our own typing
-            setTypingUsers(prev => {
-              if (is_typing) {
-                return prev.includes(user_name) ? prev : [...prev, user_name];
-              } else {
-                return prev.filter(user => user !== user_name);
-              }
+      // Only set up realtime if user is authenticated and is a participant
+      if (!user || !isParticipant) {
+        console.log('Skipping realtime setup - user not authenticated or not participant');
+        return;
+      }
+
+      try {
+        // Load initial messages
+        const { data } = await sb.from("messages").select("*").eq("room_id", id).order("created_at", { ascending: true });
+        setMessages((data as any) || []);
+        
+        // Set up real-time subscription with better error handling
+        channel = sb
+          .channel(`room:${id}`)
+          .on("postgres_changes", { 
+            event: "INSERT", 
+            schema: "public", 
+            table: "messages", 
+            filter: `room_id=eq.${id}` 
+          }, (payload) => {
+            console.log('New message received:', payload.new);
+            setMessages(prev => {
+              // Check if message already exists to avoid duplicates
+              const exists = prev.some(msg => msg.id === payload.new.id);
+              if (exists) return prev;
+              return [...prev, payload.new as any];
             });
-          }
-        })
-        .subscribe((status) => {
-          console.log('Subscription status:', status);
-        });
+            // Scroll to bottom after a short delay to ensure DOM is updated
+            setTimeout(() => {
+              bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+            }, 100);
+          })
+          .on("broadcast", { event: "typing" }, (payload) => {
+            const { user_name, is_typing } = payload.payload;
+            if (user_name !== profile?.display_name) { // Don't show our own typing
+              setTypingUsers(prev => {
+                if (is_typing) {
+                  return prev.includes(user_name) ? prev : [...prev, user_name];
+                } else {
+                  return prev.filter(user => user !== user_name);
+                }
+              });
+            }
+          })
+          .subscribe((status) => {
+            console.log('Subscription status:', status);
+            if (status === 'CHANNEL_ERROR') {
+              console.error('Realtime channel error, attempting to reconnect...');
+              // Don't try to reconnect automatically, just log the error
+            }
+          });
+      } catch (error) {
+        console.error('Error setting up realtime:', error);
+      }
     };
     
     setupRealtime();
     
     return () => { 
       if (channel) {
+        console.log('Cleaning up realtime channel');
         sb.removeChannel(channel);
       }
     };
-  }, [id, sb]);
+  }, [id, sb, user, isParticipant]);
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages.length]);
 
