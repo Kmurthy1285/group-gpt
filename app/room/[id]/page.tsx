@@ -77,7 +77,18 @@ export default function RoomPage() {
           
           setIsParticipant(true);
           
-          // Add system message for auto-join
+          // Load messages after successful auto-join
+          try {
+            console.log('Loading messages for room after auto-join:', id);
+            const { data } = await supabase.from("messages").select("*").eq("room_id", id).order("created_at", { ascending: true });
+            setMessages((data as any) || []);
+            setMessagesLoaded(true);
+            console.log('Messages loaded successfully after auto-join, count:', data?.length || 0);
+          } catch (error) {
+            console.error('Error loading messages after auto-join:', error);
+          }
+          
+          // Add system message for auto-join AFTER loading messages
           try {
             await fetch(`/api/rooms/${id}/system-message`, {
               method: "POST",
@@ -89,20 +100,14 @@ export default function RoomPage() {
               })
             });
             console.log('Join system message created for auto-join');
+            
+            // Reload messages to include the new system message
+            const { data } = await supabase.from("messages").select("*").eq("room_id", id).order("created_at", { ascending: true });
+            setMessages((data as any) || []);
+            console.log('Messages reloaded with system message, count:', data?.length || 0);
           } catch (systemError) {
             console.error('Error adding join system message for auto-join:', systemError);
             // Don't fail the join if system message fails
-          }
-          
-          // Load messages after successful auto-join
-          try {
-            console.log('Loading messages for room after auto-join:', id);
-            const { data } = await supabase.from("messages").select("*").eq("room_id", id).order("created_at", { ascending: true });
-            setMessages((data as any) || []);
-            setMessagesLoaded(true);
-            console.log('Messages loaded successfully after auto-join, count:', data?.length || 0);
-          } catch (error) {
-            console.error('Error loading messages after auto-join:', error);
           }
           
         } catch (error) {

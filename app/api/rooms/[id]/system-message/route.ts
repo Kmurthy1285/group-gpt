@@ -9,7 +9,10 @@ export async function POST(
     const { action, user_name, user_id } = await request.json();
     const roomId = params.id;
 
+    console.log(`System message API called: action=${action}, user_name=${user_name}, user_id=${user_id}, roomId=${roomId}`);
+
     if (!action || !user_name || !user_id) {
+      console.log("Missing required fields");
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
@@ -22,8 +25,11 @@ export async function POST(
     } else if (action === "leave") {
       content = `${user_name} left the chat`;
     } else {
+      console.log("Invalid action:", action);
       return NextResponse.json({ error: "Invalid action" }, { status: 400 });
     }
+
+    console.log(`Creating system message: "${content}"`);
 
     // Insert system message
     const { data, error } = await supabase
@@ -43,6 +49,7 @@ export async function POST(
       return NextResponse.json({ error: "Failed to create system message" }, { status: 500 });
     }
 
+    console.log("System message created successfully:", data);
     return NextResponse.json({ message: data });
   } catch (error) {
     console.error("Error in system message API:", error);
