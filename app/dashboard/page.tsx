@@ -51,9 +51,9 @@ export default function DashboardPage() {
       const { data: profileData } = await getUserProfile(user.id);
       setProfile(profileData);
       
-      // Only load rooms if we don't have them or they're stale (older than 30 seconds)
+      // Only load rooms if we don't have them or they're stale (older than 2 minutes)
       const now = Date.now();
-      if (rooms.length === 0 || (now - lastLoadTime) > 30000) {
+      if (rooms.length === 0 || (now - lastLoadTime) > 120000) {
         await loadRooms(user.id);
         setLastLoadTime(now);
       }
@@ -66,7 +66,7 @@ export default function DashboardPage() {
   const loadRooms = async (userId: string) => {
     const supabase = supabaseClient();
     
-    // Only get rooms where user is a participant
+    // Get all data in a single optimized query
     const { data: participantRooms } = await supabase
       .from('room_participants')
       .select(`
@@ -80,39 +80,64 @@ export default function DashboardPage() {
       `)
       .eq('user_id', userId);
 
+    if (!participantRooms || participantRooms.length === 0) {
+      setRooms([]);
+      return;
+    }
+
     // Convert to array of rooms
     const allRooms = participantRooms?.map((participant: any) => participant.rooms).filter(Boolean) || [];
+    const roomIds = allRooms.map(room => room.id);
 
-    // Get message counts, last messages, and participants for each room
-    const roomsWithStats = await Promise.all(
-      allRooms.map(async (room) => {
-        const { data: messages } = await supabase
-          .from('messages')
-          .select('content, created_at')
-          .eq('room_id', room.id)
-          .order('created_at', { ascending: false })
-          .limit(1);
+    // Get all messages for all rooms in one query
+    const { data: allMessages } = await supabase
+      .from('messages')
+      .select('room_id, content, created_at')
+      .in('room_id', roomIds)
+      .order('created_at', { ascending: false });
 
-        // Get participants
-        const { data: participants } = await supabase
-          .from('room_participants')
-          .select(`
-            user_id,
-            user_profiles (
-              display_name
-            )
-          `)
-          .eq('room_id', room.id);
+    // Get all participants for all rooms in one query
+    const { data: allParticipants } = await supabase
+      .from('room_participants')
+      .select(`
+        room_id,
+        user_id,
+        user_profiles (
+          display_name
+        )
+      `)
+      .in('room_id', roomIds);
 
-        return {
-          ...room,
-          message_count: messages?.length || 0,
-          last_message: messages?.[0]?.content,
-          last_message_at: messages?.[0]?.created_at,
-          participants: participants || []
-        };
-      })
-    );
+    // Group messages by room_id and get the latest message for each room
+    const messagesByRoom = allMessages?.reduce((acc, message) => {
+      if (!acc[message.room_id]) {
+        acc[message.room_id] = message;
+      }
+      return acc;
+    }, {} as Record<string, any>) || {};
+
+    // Group participants by room_id
+    const participantsByRoom = allParticipants?.reduce((acc, participant) => {
+      if (!acc[participant.room_id]) {
+        acc[participant.room_id] = [];
+      }
+      acc[participant.room_id].push(participant);
+      return acc;
+    }, {} as Record<string, any[]>) || {};
+
+    // Build the final rooms array
+    const roomsWithStats = allRooms.map(room => {
+      const lastMessage = messagesByRoom[room.id];
+      const participants = participantsByRoom[room.id] || [];
+
+      return {
+        ...room,
+        message_count: lastMessage ? 1 : 0,
+        last_message: lastMessage?.content,
+        last_message_at: lastMessage?.created_at,
+        participants: participants
+      };
+    });
 
     // Sort by last activity
     roomsWithStats.sort((a, b) => 
@@ -130,11 +155,11 @@ export default function DashboardPage() {
     }
   };
 
-  // Refresh rooms when user returns to the page
+  // Refresh rooms when user returns to the page (less aggressive)
   useEffect(() => {
     const handleFocus = () => {
       const now = Date.now();
-      if (user && (now - lastLoadTime) > 10000) { // Refresh if older than 10 seconds
+      if (user && (now - lastLoadTime) > 60000) { // Refresh if older than 1 minute
         refreshRooms();
       }
     };
