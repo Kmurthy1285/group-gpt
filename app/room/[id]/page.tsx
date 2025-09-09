@@ -170,11 +170,43 @@ export default function RoomPage() {
       })
       .subscribe((status) => {
         console.log('Realtime channel status:', status);
+        if (status === 'CHANNEL_ERROR') {
+          console.error('Realtime channel error - messages may not update in real-time');
+        } else if (status === 'SUBSCRIBED') {
+          console.log('Successfully subscribed to realtime updates for room:', id);
+        }
       });
 
+    // Fallback: Poll for new messages every 3 seconds if realtime fails
+    const pollInterval = setInterval(async () => {
+      try {
+        const { data } = await supabase
+          .from("messages")
+          .select("*")
+          .eq("room_id", id)
+          .order("created_at", { ascending: false })
+          .limit(1);
+        
+        if (data && data.length > 0) {
+          const latestMessage = data[0];
+          setMessages(prev => {
+            const exists = prev.some(msg => msg.id === latestMessage.id);
+            if (!exists) {
+              console.log('Found new message via polling:', latestMessage);
+              return [...prev, latestMessage];
+            }
+            return prev;
+          });
+        }
+      } catch (error) {
+        console.error('Error polling for messages:', error);
+      }
+    }, 3000);
+
     return () => {
-      console.log('Cleaning up realtime channel');
+      console.log('Cleaning up realtime channel and polling');
       supabase.removeChannel(channel);
+      clearInterval(pollInterval);
     };
   }, [id, user, isParticipant, profile?.display_name]);
 
@@ -218,6 +250,8 @@ export default function RoomPage() {
     setMessages(prev => [...prev, tempMessage]);
     
     try {
+      console.log('Sending message to API:', { room_id: id, user_name: profile.display_name, user_id: user.id, content: text });
+      
       const response = await fetch(`/api/rooms/${id}/send`, { 
         method: "POST", 
         headers: { "Content-Type": "application/json" }, 
@@ -231,6 +265,8 @@ export default function RoomPage() {
       if (!response.ok) {
         throw new Error('Failed to send message');
       }
+      
+      console.log('Message sent successfully to API');
       
       // No need to reload messages - realtime subscription will handle new messages
       // The temporary message will be replaced by the real message from the server
