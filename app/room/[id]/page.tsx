@@ -23,6 +23,8 @@ export default function RoomPage() {
 
   useEffect(() => {
     const checkAuth = async () => {
+      console.log('Auth check starting for room:', id);
+      
       const { user } = await getCurrentUser();
       if (!user) {
         // Redirect to login with the current room URL as redirect parameter
@@ -36,8 +38,11 @@ export default function RoomPage() {
       const { data: profileData } = await getUserProfile(user.id);
       setProfile(profileData);
       
+      // Use fresh supabase client instead of the sb prop
+      const supabase = supabaseClient();
+      
       // Get room info
-      const { data: roomData } = await sb
+      const { data: roomData } = await supabase
         .from('rooms')
         .select('*')
         .eq('id', id)
@@ -51,7 +56,7 @@ export default function RoomPage() {
       setRoom(roomData);
       
       // Check if user is a participant, if not redirect to dashboard
-      const { data: participant } = await sb
+      const { data: participant } = await supabase
         .from('room_participants')
         .select('*')
         .eq('room_id', id)
@@ -61,7 +66,7 @@ export default function RoomPage() {
       if (!participant) {
         // User is not a participant, auto-join them (for invite links)
         try {
-          const { error } = await sb
+          const { error } = await supabase
             .from('room_participants')
             .insert({
               room_id: id,
@@ -86,7 +91,7 @@ export default function RoomPage() {
       // Load messages here, only once when auth is complete
       try {
         console.log('Loading messages for room:', id);
-        const { data } = await sb.from("messages").select("*").eq("room_id", id).order("created_at", { ascending: true });
+        const { data } = await supabase.from("messages").select("*").eq("room_id", id).order("created_at", { ascending: true });
         setMessages((data as any) || []);
         setMessagesLoaded(true);
         console.log('Messages loaded successfully, count:', data?.length || 0);
@@ -98,7 +103,7 @@ export default function RoomPage() {
     };
     
     checkAuth();
-  }, [id, router, sb]);
+  }, [id, router]); // Removed 'sb' from dependencies
 
   // Messages are now loaded in the auth check useEffect above
 
