@@ -114,7 +114,7 @@ export default function DashboardPage() {
       const allRooms = participantRooms?.map((participant: any) => participant.rooms).filter(Boolean) || [];
       
       // For now, just show rooms without message stats to make it fast
-      const roomsWithBasicInfo = allRooms.map(room => ({
+      const roomsWithBasicInfo = allRooms.map((room: any) => ({
         ...room,
         message_count: 0,
         last_message: null,
@@ -123,7 +123,7 @@ export default function DashboardPage() {
       }));
 
       // Sort by creation date
-      roomsWithBasicInfo.sort((a, b) => 
+      roomsWithBasicInfo.sort((a: any, b: any) => 
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       );
 
