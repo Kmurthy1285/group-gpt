@@ -1,31 +1,74 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { useParams } from "next/navigation";
-import { supabaseClient } from "@/lib/supabase";
+import { useParams, useRouter } from "next/navigation";
+import { supabaseClient, getCurrentUser, getUserProfile } from "@/lib/supabase";
 
 type Message = { id: number; user_name: string; role: "user"|"assistant"|"system"; content: string; created_at: string };
 
 export default function RoomPage() {
   const { id } = useParams<{ id: string }>();
+  const router = useRouter();
   const sb = supabaseClient();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
-  const [name, setName] = useState("");
-  const [showNameInput, setShowNameInput] = useState(false);
-  const [tempName, setTempName] = useState("");
+  const [user, setUser] = useState<any>(null);
+  const [profile, setProfile] = useState<any>(null);
+  const [room, setRoom] = useState<any>(null);
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
   const bottomRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  useEffect(() => { 
-    const savedName = localStorage.getItem("displayName");
-    if (savedName) {
-      setName(savedName);
-    } else {
-      // Show name input if no saved name
-      setShowNameInput(true);
-    }
-  }, []);
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { user } = await getCurrentUser();
+      if (!user) {
+        router.push('/login');
+        return;
+      }
+      
+      setUser(user);
+      
+      // Get user profile
+      const { data: profileData } = await getUserProfile(user.id);
+      setProfile(profileData);
+      
+      // Get room info
+      const { data: roomData } = await sb
+        .from('rooms')
+        .select('*')
+        .eq('id', id)
+        .single();
+        
+      if (!roomData) {
+        router.push('/dashboard');
+        return;
+      }
+      
+      setRoom(roomData);
+      
+      // Check if user is a participant, if not add them
+      const { data: participant } = await sb
+        .from('room_participants')
+        .select('*')
+        .eq('room_id', id)
+        .eq('user_id', user.id)
+        .single();
+        
+      if (!participant) {
+        await sb
+          .from('room_participants')
+          .insert({
+            room_id: id,
+            user_id: user.id
+          });
+      }
+      
+      setLoading(false);
+    };
+    
+    checkAuth();
+  }, [id, router, sb]);
 
   // Load history and set up real-time subscription
   useEffect(() => {
@@ -59,7 +102,7 @@ export default function RoomPage() {
         })
         .on("broadcast", { event: "typing" }, (payload) => {
           const { user_name, is_typing } = payload.payload;
-          if (user_name !== name) { // Don't show our own typing
+          if (user_name !== profile?.display_name) { // Don't show our own typing
             setTypingUsers(prev => {
               if (is_typing) {
                 return prev.includes(user_name) ? prev : [...prev, user_name];
@@ -92,15 +135,15 @@ export default function RoomPage() {
         clearTimeout(typingTimeoutRef.current);
       }
       // Send stop typing event when component unmounts
-      if (name) {
+      if (profile) {
         sendTypingEvent(false);
       }
     };
-  }, [name]);
+  }, [profile]);
 
   const send = async () => {
     const text = input.trim();
-    if (!text) return;
+    if (!text || !profile) return;
     setInput("");
     
     // Stop typing indicator when sending message
@@ -109,19 +152,27 @@ export default function RoomPage() {
       clearTimeout(typingTimeoutRef.current);
     }
     
-    await fetch(`/api/rooms/${id}/send`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ user_name: name, content: text }) });
+    await fetch(`/api/rooms/${id}/send`, { 
+      method: "POST", 
+      headers: { "Content-Type": "application/json" }, 
+      body: JSON.stringify({ 
+        user_name: profile.display_name, 
+        user_id: user.id,
+        content: text 
+      }) 
+    });
   };
 
   const sendEnter = (e: React.KeyboardEvent<HTMLInputElement>) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } };
 
   // Typing indicator functions
   const sendTypingEvent = (isTyping: boolean) => {
-    if (!name) return;
+    if (!profile) return;
     const channel = sb.channel(`room:${id}`);
     channel.send({
       type: 'broadcast',
       event: 'typing',
-      payload: { user_name: name, is_typing: isTyping }
+      payload: { user_name: profile.display_name, is_typing: isTyping }
     });
   };
 
@@ -151,93 +202,22 @@ export default function RoomPage() {
     }
   };
 
-  const handleNameSubmit = () => {
-    if (tempName.trim()) {
-      setName(tempName.trim());
-      localStorage.setItem("displayName", tempName.trim());
-      setShowNameInput(false);
-    }
-  };
-
   const inviteUrl = typeof window !== 'undefined' ? window.location.href : "";
 
-  // Show name input modal if needed
-  if (showNameInput) {
+  if (loading) {
     return (
       <div style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        zIndex: 1000
+        minHeight: '100vh',
+        backgroundColor: 'var(--bg-primary)'
       }}>
         <div style={{
-          backgroundColor: 'var(--bg-secondary)',
-          borderRadius: 'var(--radius)',
-          padding: '32px',
-          boxShadow: 'var(--shadow-md)',
-          width: '90%',
-          maxWidth: '400px'
+          fontSize: '18px',
+          color: 'var(--text-secondary)'
         }}>
-          <h3 style={{
-            fontSize: '20px',
-            fontWeight: '600',
-            marginBottom: '16px',
-            color: 'var(--text-primary)',
-            textAlign: 'center'
-          }}>
-            Join Chat Room
-          </h3>
-          <p style={{
-            fontSize: '14px',
-            color: 'var(--text-secondary)',
-            marginBottom: '20px',
-            textAlign: 'center'
-          }}>
-            Enter your display name to join the conversation
-          </p>
-          <input
-            style={{
-              width: '100%',
-              padding: '12px 16px',
-              borderRadius: 'var(--radius-sm)',
-              border: '1px solid var(--border-light)',
-              fontSize: '16px',
-              backgroundColor: 'var(--bg-primary)',
-              color: 'var(--text-primary)',
-              marginBottom: '20px'
-            }}
-            value={tempName}
-            onChange={e => setTempName(e.target.value)}
-            placeholder="Enter your name"
-            onKeyDown={e => {
-              if (e.key === 'Enter') {
-                handleNameSubmit();
-              }
-            }}
-            autoFocus
-          />
-          <button
-            style={{
-              width: '100%',
-              padding: '12px 24px',
-              borderRadius: 'var(--radius-sm)',
-              backgroundColor: 'var(--bg-message-user)',
-              color: 'var(--text-message-user)',
-              fontSize: '16px',
-              fontWeight: '500',
-              boxShadow: 'var(--shadow-sm)'
-            }}
-            onClick={handleNameSubmit}
-            disabled={!tempName.trim()}
-          >
-            Join Chat
-          </button>
+          Loading chat...
         </div>
       </div>
     );
@@ -259,19 +239,40 @@ export default function RoomPage() {
         borderBottom: '1px solid var(--border-light)',
         marginBottom: '16px'
       }}>
-        <h2 style={{ 
-          fontSize: '18px', 
-          fontWeight: '600',
-          color: 'var(--text-primary)'
-        }}>
-          Room <span style={{ 
-            fontFamily: 'monospace', 
-            color: 'var(--text-secondary)',
-            fontSize: '14px'
-          }}>
-            {id.slice(0,8)}
-          </span>
-        </h2>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <button
+            onClick={() => router.push('/dashboard')}
+            style={{
+              padding: '8px',
+              borderRadius: 'var(--radius-sm)',
+              backgroundColor: 'var(--bg-secondary)',
+              color: 'var(--text-primary)',
+              border: '1px solid var(--border-light)',
+              cursor: 'pointer',
+              fontSize: '16px'
+            }}
+          >
+            ←
+          </button>
+          <div>
+            <h2 style={{ 
+              fontSize: '18px', 
+              fontWeight: '600',
+              color: 'var(--text-primary)',
+              margin: 0
+            }}>
+              {room?.name || 'Chat Room'}
+            </h2>
+            <p style={{
+              fontSize: '12px',
+              color: 'var(--text-secondary)',
+              margin: 0,
+              fontFamily: 'monospace'
+            }}>
+              {id.slice(0,8)}
+            </p>
+          </div>
+        </div>
         <button 
           style={{
             fontSize: '14px',
@@ -280,7 +281,8 @@ export default function RoomPage() {
             backgroundColor: 'var(--bg-secondary)',
             color: 'var(--text-primary)',
             border: '1px solid var(--border-light)',
-            boxShadow: 'var(--shadow-sm)'
+            boxShadow: 'var(--shadow-sm)',
+            cursor: 'pointer'
           }}
           onClick={() => navigator.clipboard.writeText(inviteUrl)}
         >
@@ -308,7 +310,7 @@ export default function RoomPage() {
           gap: '12px'
         }}>
           {messages.map(m => {
-            const isCurrentUser = m.user_name === name;
+            const isCurrentUser = m.user_name === profile?.display_name;
             const isAI = m.role === 'assistant';
             
             return (

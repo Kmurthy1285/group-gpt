@@ -80,11 +80,17 @@ function shouldSkipAIResponse(content: string, userNames: string[], currentUser:
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const roomId = params.id;
-  const { content, user_name } = await req.json();
+  const { content, user_name, user_id } = await req.json();
   const sb = supabaseService();
 
   // 1) Save the user's message
-  const { error: e1 } = await sb.from("messages").insert({ room_id: roomId, user_name, role: "user", content });
+  const { error: e1 } = await sb.from("messages").insert({ 
+    room_id: roomId, 
+    user_name, 
+    user_id,
+    role: "user", 
+    content 
+  });
   if (e1) return NextResponse.json({ error: e1.message }, { status: 400 });
 
   // 2) Fetch recent history for context
