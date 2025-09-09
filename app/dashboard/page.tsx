@@ -209,7 +209,7 @@ export default function DashboardPage() {
               color: 'var(--text-primary)',
               marginBottom: '4px'
             }}>
-              💬 Group GPT
+              💬 GroupGPT
             </h1>
             <p style={{
               fontSize: '16px',

@@ -85,7 +85,7 @@ export default function LoginPage() {
             color: 'var(--text-primary)',
             marginBottom: '8px'
           }}>
-            💬 Group GPT
+            💬 GroupGPT
           </h1>
           <p style={{
             fontSize: '16px',

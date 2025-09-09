@@ -1,7 +1,7 @@
 import "./globals.css";
 import React from "react";
 
-export const metadata = { title: "Multi‑Person GPT Chat" };
+export const metadata = { title: "GroupGPT" };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -26,7 +26,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               color: 'var(--text-primary)',
               textAlign: 'center'
             }}>
-              💬 Multi‑Person GPT Chat
+              💬 GroupGPT
             </h1>
           </header>
           <main style={{ flex: 1 }}>

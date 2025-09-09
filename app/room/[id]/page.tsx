@@ -230,7 +230,7 @@ export default function RoomPage() {
       height: 'calc(100vh - 120px)',
       maxHeight: '800px'
     }}>
-      {/* Header */}
+      {/* Room Header */}
       <div style={{ 
         display: 'flex', 
         alignItems: 'center', 
