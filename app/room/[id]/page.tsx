@@ -19,8 +19,12 @@ export default function RoomPage() {
   const [isParticipant, setIsParticipant] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const messagesLoadedRef = useRef<boolean>(false);
 
   useEffect(() => {
+    // Reset messages loaded flag when room ID changes
+    messagesLoadedRef.current = false;
+    
     const checkAuth = async () => {
       const { user } = await getCurrentUser();
       if (!user) {
@@ -89,10 +93,18 @@ export default function RoomPage() {
 
   // Load history (realtime disabled temporarily to fix CHANNEL_ERROR)
   useEffect(() => {
+    console.log('useEffect triggered - id:', id, 'user:', user?.id, 'isParticipant:', isParticipant, 'messagesLoaded:', messagesLoadedRef.current);
+    
     const loadMessages = async () => {
       // Only load messages if user is authenticated and is a participant
       if (!user || !isParticipant) {
         console.log('Skipping message load - user not authenticated or not participant');
+        return;
+      }
+
+      // Prevent multiple loads for the same room
+      if (messagesLoadedRef.current) {
+        console.log('Messages already loaded for this room, skipping');
         return;
       }
 
@@ -102,6 +114,7 @@ export default function RoomPage() {
         const supabase = supabaseClient();
         const { data } = await supabase.from("messages").select("*").eq("room_id", id).order("created_at", { ascending: true });
         setMessages((data as any) || []);
+        messagesLoadedRef.current = true; // Mark as loaded
         console.log('Messages loaded successfully, count:', data?.length || 0);
       } catch (error) {
         console.error('Error loading messages:', error);
