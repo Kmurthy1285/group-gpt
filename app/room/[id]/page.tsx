@@ -17,13 +17,13 @@ export default function RoomPage() {
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [isParticipant, setIsParticipant] = useState(false);
+  const [messagesLoaded, setMessagesLoaded] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const messagesLoadedRef = useRef<boolean>(false);
 
   useEffect(() => {
     // Reset messages loaded flag when room ID changes
-    messagesLoadedRef.current = false;
+    setMessagesLoaded(false);
     
     const checkAuth = async () => {
       const { user } = await getCurrentUser();
@@ -93,7 +93,7 @@ export default function RoomPage() {
 
   // Load history (realtime disabled temporarily to fix CHANNEL_ERROR)
   useEffect(() => {
-    console.log('useEffect triggered - id:', id, 'user:', user?.id, 'isParticipant:', isParticipant, 'messagesLoaded:', messagesLoadedRef.current);
+    console.log('useEffect triggered - id:', id, 'user:', user?.id, 'isParticipant:', isParticipant, 'messagesLoaded:', messagesLoaded);
     
     const loadMessages = async () => {
       // Only load messages if user is authenticated and is a participant
@@ -103,7 +103,7 @@ export default function RoomPage() {
       }
 
       // Prevent multiple loads for the same room
-      if (messagesLoadedRef.current) {
+      if (messagesLoaded) {
         console.log('Messages already loaded for this room, skipping');
         return;
       }
@@ -114,7 +114,7 @@ export default function RoomPage() {
         const supabase = supabaseClient();
         const { data } = await supabase.from("messages").select("*").eq("room_id", id).order("created_at", { ascending: true });
         setMessages((data as any) || []);
-        messagesLoadedRef.current = true; // Mark as loaded
+        setMessagesLoaded(true); // Mark as loaded
         console.log('Messages loaded successfully, count:', data?.length || 0);
       } catch (error) {
         console.error('Error loading messages:', error);
@@ -122,7 +122,7 @@ export default function RoomPage() {
     };
     
     loadMessages();
-  }, [id, user, isParticipant]); // Removed 'sb' from dependencies
+  }, [id, user, isParticipant]); // Don't include messagesLoaded in dependencies
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages.length]);
 
