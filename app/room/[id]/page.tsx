@@ -16,6 +16,7 @@ export default function RoomPage() {
   const [room, setRoom] = useState<any>(null);
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isParticipant, setIsParticipant] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -48,7 +49,7 @@ export default function RoomPage() {
       
       setRoom(roomData);
       
-      // Check if user is a participant, if not add them
+      // Check if user is a participant, if not redirect to dashboard
       const { data: participant } = await sb
         .from('room_participants')
         .select('*')
@@ -57,14 +58,14 @@ export default function RoomPage() {
         .single();
         
       if (!participant) {
-        await sb
-          .from('room_participants')
-          .insert({
-            room_id: id,
-            user_id: user.id
-          });
+        // User is not a participant, show join option
+        setIsParticipant(false);
+        setRoom(roomData);
+        setLoading(false);
+        return;
       }
       
+      setIsParticipant(true);
       setLoading(false);
     };
     
@@ -162,6 +163,26 @@ export default function RoomPage() {
         content: text 
       }) 
     });
+  };
+
+  const handleJoinRoom = async () => {
+    if (!user) return;
+    
+    try {
+      const { error } = await sb
+        .from('room_participants')
+        .insert({
+          room_id: id,
+          user_id: user.id
+        });
+
+      if (error) throw error;
+      
+      setIsParticipant(true);
+    } catch (error) {
+      console.error('Error joining room:', error);
+      alert('Failed to join room. Please try again.');
+    }
   };
 
   const sendEnter = (e: React.KeyboardEvent<HTMLInputElement>) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } };
@@ -283,8 +304,57 @@ export default function RoomPage() {
         </button>
       </div>
 
+      {/* Join Room UI */}
+      {!isParticipant && (
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '40px 20px',
+          backgroundColor: 'var(--bg-secondary)',
+          borderRadius: 'var(--radius)',
+          boxShadow: 'var(--shadow-md)',
+          marginBottom: '16px'
+        }}>
+          <h3 style={{
+            fontSize: '18px',
+            fontWeight: '600',
+            color: 'var(--text-primary)',
+            marginBottom: '8px'
+          }}>
+            Join "{room?.name || 'Chat Room'}"
+          </h3>
+          <p style={{
+            fontSize: '14px',
+            color: 'var(--text-secondary)',
+            marginBottom: '20px',
+            textAlign: 'center'
+          }}>
+            You're not a member of this chat yet. Click below to join the conversation.
+          </p>
+          <button
+            onClick={handleJoinRoom}
+            style={{
+              padding: '12px 24px',
+              borderRadius: 'var(--radius-sm)',
+              backgroundColor: 'var(--bg-message-user)',
+              color: 'var(--text-message-user)',
+              fontSize: '16px',
+              fontWeight: '500',
+              border: 'none',
+              cursor: 'pointer',
+              boxShadow: 'var(--shadow-sm)'
+            }}
+          >
+            Join Chat
+          </button>
+        </div>
+      )}
+
       {/* Messages Container */}
-      <div style={{
+      {isParticipant && (
+        <div style={{
         flex: 1,
         backgroundColor: 'var(--bg-secondary)',
         borderRadius: 'var(--radius)',
@@ -451,6 +521,7 @@ export default function RoomPage() {
           </button>
         </div>
       </div>
+      )}
 
       {/* Footer Tip */}
       <p style={{ 
