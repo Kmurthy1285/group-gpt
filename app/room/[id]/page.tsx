@@ -97,17 +97,19 @@ export default function RoomPage() {
       }
 
       try {
+        console.log('Loading messages for room:', id);
         // Load initial messages
-        const { data } = await sb.from("messages").select("*").eq("room_id", id).order("created_at", { ascending: true });
+        const supabase = supabaseClient();
+        const { data } = await supabase.from("messages").select("*").eq("room_id", id).order("created_at", { ascending: true });
         setMessages((data as any) || []);
-        console.log('Messages loaded successfully');
+        console.log('Messages loaded successfully, count:', data?.length || 0);
       } catch (error) {
         console.error('Error loading messages:', error);
       }
     };
     
     loadMessages();
-  }, [id, sb, user, isParticipant]);
+  }, [id, user, isParticipant]); // Removed 'sb' from dependencies
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages.length]);
 
