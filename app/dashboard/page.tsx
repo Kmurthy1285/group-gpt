@@ -66,7 +66,7 @@ export default function DashboardPage() {
   const loadRooms = async (userId: string) => {
     const supabase = supabaseClient();
     
-    // Get rooms where user is a participant
+    // Only get rooms where user is a participant
     const { data: participantRooms } = await supabase
       .from('room_participants')
       .select(`
@@ -80,30 +80,12 @@ export default function DashboardPage() {
       `)
       .eq('user_id', userId);
 
-    // Get rooms created by user
-    const { data: createdRooms } = await supabase
-      .from('rooms')
-      .select('*')
-      .eq('created_by', userId);
-
-    // Combine and deduplicate rooms
-    const allRooms = new Map();
-    
-    // Add created rooms
-    createdRooms?.forEach(room => {
-      allRooms.set(room.id, room);
-    });
-    
-    // Add participant rooms
-    participantRooms?.forEach((participant: any) => {
-      if (participant.rooms) {
-        allRooms.set(participant.rooms.id, participant.rooms);
-      }
-    });
+    // Convert to array of rooms
+    const allRooms = participantRooms?.map((participant: any) => participant.rooms).filter(Boolean) || [];
 
     // Get message counts, last messages, and participants for each room
     const roomsWithStats = await Promise.all(
-      Array.from(allRooms.values()).map(async (room) => {
+      allRooms.map(async (room) => {
         const { data: messages } = await supabase
           .from('messages')
           .select('content, created_at')
