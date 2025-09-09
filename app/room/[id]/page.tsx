@@ -133,15 +133,46 @@ export default function RoomPage() {
       clearTimeout(typingTimeoutRef.current);
     }
     
-    await fetch(`/api/rooms/${id}/send`, { 
-      method: "POST", 
-      headers: { "Content-Type": "application/json" }, 
-      body: JSON.stringify({ 
-        user_name: profile.display_name, 
-        user_id: user.id,
-        content: text 
-      }) 
-    });
+    // Create a temporary message object for immediate UI update
+    const tempMessage = {
+      id: Date.now(), // Temporary ID
+      user_name: profile.display_name,
+      user_id: user.id,
+      role: "user" as const,
+      content: text,
+      created_at: new Date().toISOString()
+    };
+    
+    // Add message to local state immediately for instant UI update
+    setMessages(prev => [...prev, tempMessage]);
+    
+    try {
+      const response = await fetch(`/api/rooms/${id}/send`, { 
+        method: "POST", 
+        headers: { "Content-Type": "application/json" }, 
+        body: JSON.stringify({ 
+          user_name: profile.display_name, 
+          user_id: user.id,
+          content: text 
+        }) 
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to send message');
+      }
+      
+      // Optionally reload messages to get the real message with proper ID
+      // This ensures we have the correct message data from the server
+      const supabase = supabaseClient();
+      const { data } = await supabase.from("messages").select("*").eq("room_id", id).order("created_at", { ascending: true });
+      setMessages((data as any) || []);
+      
+    } catch (error) {
+      console.error('Error sending message:', error);
+      // Remove the temporary message if sending failed
+      setMessages(prev => prev.filter(msg => msg.id !== tempMessage.id));
+      alert('Failed to send message. Please try again.');
+    }
   };
 
   const handleJoinRoom = async () => {
