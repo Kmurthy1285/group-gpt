@@ -258,17 +258,10 @@ export default function DashboardPage() {
           borderBottom: '1px solid var(--border-light)'
         }}>
           <div>
-            <h1 style={{
-              fontSize: '28px',
-              fontWeight: '700',
-              color: 'var(--text-primary)',
-              marginBottom: '4px'
-            }}>
-              💬 GroupGPT
-            </h1>
             <p style={{
               fontSize: '16px',
-              color: 'var(--text-secondary)'
+              color: 'var(--text-secondary)',
+              marginBottom: '4px'
             }}>
               Welcome back, {profile?.display_name || 'User'}!
             </p>
@@ -415,13 +408,6 @@ export default function DashboardPage() {
                       }}>
                         {room.name}
                       </h3>
-                      <span style={{
-                        fontSize: '12px',
-                        color: 'var(--text-secondary)',
-                        fontFamily: 'monospace'
-                      }}>
-                        {room.id.slice(0, 8)}
-                      </span>
                     </div>
                     
                     <button

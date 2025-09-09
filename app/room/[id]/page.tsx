@@ -264,14 +264,6 @@ export default function RoomPage() {
             }}>
               {room?.name || 'Chat Room'}
             </h2>
-            <p style={{
-              fontSize: '12px',
-              color: 'var(--text-secondary)',
-              margin: 0,
-              fontFamily: 'monospace'
-            }}>
-              {id.slice(0,8)}
-            </p>
           </div>
         </div>
         <button 
