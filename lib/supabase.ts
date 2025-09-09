@@ -20,10 +20,18 @@ export function supabaseService() {
 // Auth helper functions
 export async function signInWithGoogle() {
   const supabase = supabaseClient();
+  
+  // Determine the correct redirect URL based on environment
+  const redirectTo = typeof window !== 'undefined' 
+    ? `${window.location.origin}/auth/callback`
+    : process.env.NEXT_PUBLIC_SITE_URL 
+      ? `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`
+      : 'http://localhost:3000/auth/callback';
+  
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
-      redirectTo: `${window.location.origin}/auth/callback`
+      redirectTo
     }
   });
   return { data, error };
