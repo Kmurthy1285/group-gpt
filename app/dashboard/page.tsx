@@ -11,6 +11,12 @@ type Room = {
   message_count?: number;
   last_message?: string;
   last_message_at?: string;
+  participants?: Array<{
+    user_id: string;
+    user_profiles: {
+      display_name: string;
+    };
+  }>;
 };
 
 type UserProfile = {
@@ -29,6 +35,7 @@ export default function DashboardPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newRoomName, setNewRoomName] = useState("");
   const [creating, setCreating] = useState(false);
+  const [lastLoadTime, setLastLoadTime] = useState<number>(0);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -44,8 +51,12 @@ export default function DashboardPage() {
       const { data: profileData } = await getUserProfile(user.id);
       setProfile(profileData);
       
-      // Load user's rooms
-      await loadRooms(user.id);
+      // Only load rooms if we don't have them or they're stale (older than 30 seconds)
+      const now = Date.now();
+      if (rooms.length === 0 || (now - lastLoadTime) > 30000) {
+        await loadRooms(user.id);
+        setLastLoadTime(now);
+      }
       setLoading(false);
     };
     
@@ -90,7 +101,7 @@ export default function DashboardPage() {
       }
     });
 
-    // Get message counts and last messages for each room
+    // Get message counts, last messages, and participants for each room
     const roomsWithStats = await Promise.all(
       Array.from(allRooms.values()).map(async (room) => {
         const { data: messages } = await supabase
@@ -100,11 +111,23 @@ export default function DashboardPage() {
           .order('created_at', { ascending: false })
           .limit(1);
 
+        // Get participants
+        const { data: participants } = await supabase
+          .from('room_participants')
+          .select(`
+            user_id,
+            user_profiles (
+              display_name
+            )
+          `)
+          .eq('room_id', room.id);
+
         return {
           ...room,
           message_count: messages?.length || 0,
           last_message: messages?.[0]?.content,
-          last_message_at: messages?.[0]?.created_at
+          last_message_at: messages?.[0]?.created_at,
+          participants: participants || []
         };
       })
     );
@@ -117,6 +140,26 @@ export default function DashboardPage() {
 
     setRooms(roomsWithStats);
   };
+
+  const refreshRooms = async () => {
+    if (user) {
+      await loadRooms(user.id);
+      setLastLoadTime(Date.now());
+    }
+  };
+
+  // Refresh rooms when user returns to the page
+  useEffect(() => {
+    const handleFocus = () => {
+      const now = Date.now();
+      if (user && (now - lastLoadTime) > 10000) { // Refresh if older than 10 seconds
+        refreshRooms();
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [user, lastLoadTime]);
 
   const createRoom = async () => {
     if (!newRoomName.trim() || !user) return;
@@ -207,6 +250,7 @@ export default function DashboardPage() {
       
       // Reload the rooms list
       await loadRooms(user.id);
+      setLastLoadTime(Date.now());
       
     } catch (error) {
       console.error('Error leaving room:', error);
@@ -226,13 +270,34 @@ export default function DashboardPage() {
         alignItems: 'center',
         justifyContent: 'center',
         minHeight: '100vh',
-        backgroundColor: 'var(--bg-primary)'
+        background: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 50%, #f0fdf4 100%)'
       }}>
         <div style={{
-          fontSize: '18px',
-          color: 'var(--text-secondary)'
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '60px',
+          backgroundColor: 'rgba(255, 255, 255, 0.6)',
+          borderRadius: '16px',
+          backdropFilter: 'blur(10px)',
+          border: '1px solid rgba(255, 255, 255, 0.2)'
         }}>
-          Loading your chats...
+          <div style={{
+            width: '32px',
+            height: '32px',
+            border: '3px solid #e0f2fe',
+            borderTop: '3px solid #3b82f6',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite',
+            marginRight: '16px'
+          }} />
+          <span style={{
+            fontSize: '16px',
+            color: '#64748b',
+            fontWeight: '500'
+          }}>
+            Loading your chats...
+          </span>
         </div>
       </div>
     );
@@ -241,11 +306,11 @@ export default function DashboardPage() {
   return (
     <div style={{
       minHeight: '100vh',
-      backgroundColor: 'var(--bg-primary)',
+      background: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 50%, #f0fdf4 100%)',
       padding: '20px'
     }}>
       <div style={{
-        maxWidth: '800px',
+        maxWidth: '900px',
         margin: '0 auto'
       }}>
         {/* Header */}
@@ -254,16 +319,31 @@ export default function DashboardPage() {
           alignItems: 'center',
           justifyContent: 'space-between',
           marginBottom: '32px',
-          paddingBottom: '20px',
-          borderBottom: '1px solid var(--border-light)'
+          padding: '24px',
+          backgroundColor: 'rgba(255, 255, 255, 0.8)',
+          borderRadius: '16px',
+          backdropFilter: 'blur(10px)',
+          border: '1px solid rgba(255, 255, 255, 0.2)',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
         }}>
           <div>
-            <p style={{
-              fontSize: '16px',
-              color: 'var(--text-secondary)',
-              marginBottom: '4px'
+            <h1 style={{
+              fontSize: '24px',
+              fontWeight: '700',
+              color: '#1e40af',
+              margin: '0 0 4px 0',
+              background: 'linear-gradient(135deg, #1e40af, #3b82f6)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent'
             }}>
-              Welcome back, {profile?.display_name || 'User'}!
+              Welcome back, {profile?.display_name || 'User'}! 👋
+            </h1>
+            <p style={{
+              fontSize: '14px',
+              color: '#64748b',
+              margin: 0
+            }}>
+              Ready to start a new conversation?
             </p>
           </div>
           
@@ -273,34 +353,75 @@ export default function DashboardPage() {
             alignItems: 'center'
           }}>
             <button
+              onClick={refreshRooms}
+              style={{
+                padding: '10px 16px',
+                borderRadius: '10px',
+                backgroundColor: 'rgba(255, 255, 255, 0.6)',
+                color: '#64748b',
+                fontSize: '14px',
+                fontWeight: '500',
+                border: '1px solid rgba(100, 116, 139, 0.2)',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.8)';
+                e.currentTarget.style.color = '#475569';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.6)';
+                e.currentTarget.style.color = '#64748b';
+              }}
+            >
+              🔄 Refresh
+            </button>
+            <button
               onClick={() => setShowCreateModal(true)}
               style={{
                 padding: '12px 24px',
-                borderRadius: 'var(--radius-sm)',
-                backgroundColor: 'var(--bg-message-user)',
-                color: 'var(--text-message-user)',
+                borderRadius: '12px',
+                background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
+                color: 'white',
                 fontSize: '16px',
-                fontWeight: '500',
+                fontWeight: '600',
                 border: 'none',
                 cursor: 'pointer',
-                boxShadow: 'var(--shadow-sm)'
+                boxShadow: '0 4px 16px rgba(59, 130, 246, 0.3)',
+                transition: 'all 0.2s ease'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'translateY(-2px)';
+                e.currentTarget.style.boxShadow = '0 6px 20px rgba(59, 130, 246, 0.4)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = '0 4px 16px rgba(59, 130, 246, 0.3)';
               }}
             >
-              + New Chat
+              ✨ New Chat
             </button>
             
             <button
               onClick={handleSignOut}
               style={{
-                padding: '12px 24px',
-                borderRadius: 'var(--radius-sm)',
-                backgroundColor: 'var(--bg-secondary)',
-                color: 'var(--text-primary)',
-                fontSize: '16px',
+                padding: '10px 16px',
+                borderRadius: '10px',
+                backgroundColor: 'rgba(255, 255, 255, 0.6)',
+                color: '#64748b',
+                fontSize: '14px',
                 fontWeight: '500',
-                border: '1px solid var(--border-light)',
+                border: '1px solid rgba(100, 116, 139, 0.2)',
                 cursor: 'pointer',
-                boxShadow: 'var(--shadow-sm)'
+                transition: 'all 0.2s ease'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.8)';
+                e.currentTarget.style.color = '#475569';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.6)';
+                e.currentTarget.style.color = '#64748b';
               }}
             >
               Sign Out
@@ -313,153 +434,204 @@ export default function DashboardPage() {
           <h2 style={{
             fontSize: '20px',
             fontWeight: '600',
-            color: 'var(--text-primary)',
-            marginBottom: '16px'
+            color: '#1e40af',
+            marginBottom: '20px',
+            paddingLeft: '8px'
           }}>
-            Your Chats
+            Your Conversations 💬
           </h2>
           
           {rooms.length === 0 ? (
             <div style={{
               textAlign: 'center',
-              padding: '48px 20px',
-              backgroundColor: 'var(--bg-secondary)',
-              borderRadius: 'var(--radius)',
-              boxShadow: 'var(--shadow-md)'
+              padding: '60px 40px',
+              backgroundColor: 'rgba(255, 255, 255, 0.7)',
+              borderRadius: '20px',
+              backdropFilter: 'blur(10px)',
+              border: '2px dashed rgba(59, 130, 246, 0.3)',
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
             }}>
               <div style={{
-                fontSize: '48px',
-                marginBottom: '16px'
+                fontSize: '64px',
+                marginBottom: '20px'
               }}>
-                💬
+                💭
               </div>
               <h3 style={{
-                fontSize: '18px',
-                fontWeight: '600',
-                color: 'var(--text-primary)',
-                marginBottom: '8px'
+                fontSize: '22px',
+                fontWeight: '700',
+                color: '#1e40af',
+                marginBottom: '12px'
               }}>
-                No chats yet
+                No conversations yet
               </h3>
               <p style={{
-                fontSize: '14px',
-                color: 'var(--text-secondary)',
-                marginBottom: '24px'
+                fontSize: '16px',
+                color: '#64748b',
+                marginBottom: '24px',
+                lineHeight: '1.5'
               }}>
-                Create your first group chat to get started
+                Start your first group chat and invite friends to collaborate!
               </p>
               <button
                 onClick={() => setShowCreateModal(true)}
                 style={{
-                  padding: '12px 24px',
-                  borderRadius: 'var(--radius-sm)',
-                  backgroundColor: 'var(--bg-message-user)',
-                  color: 'var(--text-message-user)',
+                  padding: '16px 32px',
+                  borderRadius: '12px',
+                  background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
+                  color: 'white',
                   fontSize: '16px',
-                  fontWeight: '500',
+                  fontWeight: '600',
                   border: 'none',
                   cursor: 'pointer',
-                  boxShadow: 'var(--shadow-sm)'
+                  boxShadow: '0 4px 16px rgba(59, 130, 246, 0.3)',
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                  e.currentTarget.style.boxShadow = '0 6px 20px rgba(59, 130, 246, 0.4)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = '0 4px 16px rgba(59, 130, 246, 0.3)';
                 }}
               >
-                Create Your First Chat
+                ✨ Create Your First Chat
               </button>
             </div>
           ) : (
             <div style={{
               display: 'grid',
-              gap: '16px'
+              gap: '20px',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(400px, 1fr))'
             }}>
-              {rooms.map(room => (
-                <div
-                  key={room.id}
-                  style={{
-                    backgroundColor: 'var(--bg-secondary)',
-                    borderRadius: 'var(--radius)',
-                    padding: '20px',
-                    boxShadow: 'var(--shadow-md)',
-                    transition: 'all 0.2s ease',
-                    border: '1px solid transparent'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = 'var(--border-light)';
-                    e.currentTarget.style.transform = 'translateY(-2px)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = 'transparent';
-                    e.currentTarget.style.transform = 'translateY(0)';
-                  }}
-                >
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    marginBottom: '8px'
-                  }}>
-                    <div 
-                      onClick={() => router.push(`/room/${room.id}`)}
-                      style={{ cursor: 'pointer', flex: 1 }}
-                    >
-                      <h3 style={{
-                        fontSize: '18px',
-                        fontWeight: '600',
-                        color: 'var(--text-primary)',
-                        margin: 0
-                      }}>
-                        {room.name}
-                      </h3>
+              {rooms.map(room => {
+                const participantNames = room.participants?.map(p => p.user_profiles?.display_name).filter(Boolean) || [];
+                const participantCount = participantNames.length;
+                const displayParticipants = participantCount > 3 
+                  ? `${participantNames.slice(0, 3).join(', ')} +${participantCount - 3} more`
+                  : participantNames.join(', ');
+
+                return (
+                  <div
+                    key={room.id}
+                    style={{
+                      backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                      borderRadius: '16px',
+                      padding: '24px',
+                      backdropFilter: 'blur(10px)',
+                      border: '1px solid rgba(255, 255, 255, 0.2)',
+                      boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+                      transition: 'all 0.3s ease',
+                      cursor: 'pointer'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.transform = 'translateY(-4px)';
+                      e.currentTarget.style.boxShadow = '0 12px 40px rgba(0, 0, 0, 0.15)';
+                      e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.9)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = 'translateY(0)';
+                      e.currentTarget.style.boxShadow = '0 8px 32px rgba(0, 0, 0, 0.1)';
+                      e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.8)';
+                    }}
+                    onClick={() => router.push(`/room/${room.id}`)}
+                  >
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      justifyContent: 'space-between',
+                      marginBottom: '16px'
+                    }}>
+                      <div style={{ flex: 1 }}>
+                        <h3 style={{
+                          fontSize: '18px',
+                          fontWeight: '700',
+                          color: '#1e40af',
+                          margin: '0 0 8px 0',
+                          lineHeight: '1.3'
+                        }}>
+                          {room.name}
+                        </h3>
+                        
+                        {/* Participants */}
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          marginBottom: '12px'
+                        }}>
+                          <span style={{
+                            fontSize: '12px',
+                            color: '#64748b',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            padding: '4px 8px',
+                            borderRadius: '8px',
+                            fontWeight: '500'
+                          }}>
+                            👥 {participantCount} {participantCount === 1 ? 'person' : 'people'}
+                          </span>
+                        </div>
+                        
+                        {displayParticipants && (
+                          <p style={{
+                            fontSize: '13px',
+                            color: '#64748b',
+                            margin: '0 0 12px 0',
+                            fontStyle: 'italic'
+                          }}>
+                            {displayParticipants}
+                          </p>
+                        )}
+                      </div>
+                      
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          leaveRoom(room.id, room.name);
+                        }}
+                        style={{
+                          padding: '8px 12px',
+                          borderRadius: '8px',
+                          backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                          color: '#dc2626',
+                          border: '1px solid rgba(239, 68, 68, 0.2)',
+                          fontSize: '12px',
+                          fontWeight: '500',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.2)';
+                          e.currentTarget.style.color = '#b91c1c';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.1)';
+                          e.currentTarget.style.color = '#dc2626';
+                        }}
+                      >
+                        Leave
+                      </button>
                     </div>
                     
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        leaveRoom(room.id, room.name);
-                      }}
-                      style={{
-                        padding: '6px 12px',
-                        borderRadius: 'var(--radius-sm)',
-                        backgroundColor: 'transparent',
-                        color: 'var(--text-secondary)',
-                        border: '1px solid var(--border-light)',
-                        fontSize: '12px',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s ease'
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = '#fee2e2';
-                        e.currentTarget.style.color = '#dc2626';
-                        e.currentTarget.style.borderColor = '#fecaca';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = 'transparent';
-                        e.currentTarget.style.color = 'var(--text-secondary)';
-                        e.currentTarget.style.borderColor = 'var(--border-light)';
-                      }}
-                    >
-                      Leave
-                    </button>
-                  </div>
-                  
-                  <div 
-                    onClick={() => router.push(`/room/${room.id}`)}
-                    style={{ cursor: 'pointer' }}
-                  >
                     {room.last_message && (
                       <p style={{
                         fontSize: '14px',
-                        color: 'var(--text-secondary)',
-                        marginBottom: '8px',
+                        color: '#475569',
+                        marginBottom: '12px',
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap'
+                        whiteSpace: 'nowrap',
+                        lineHeight: '1.4'
                       }}>
-                        {room.last_message}
+                        💬 {room.last_message}
                       </p>
                     )}
                     
                     <div style={{
                       fontSize: '12px',
-                      color: 'var(--text-secondary)'
+                      color: '#94a3b8',
+                      fontWeight: '500'
                     }}>
                       {room.last_message_at 
                         ? `Last active ${new Date(room.last_message_at).toLocaleDateString()}`
@@ -467,8 +639,8 @@ export default function DashboardPage() {
                       }
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -486,60 +658,39 @@ export default function DashboardPage() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          zIndex: 1000,
-          padding: '20px'
+          zIndex: 1000
         }}>
           <div style={{
-            backgroundColor: 'var(--bg-secondary)',
+            backgroundColor: 'white',
             borderRadius: 'var(--radius)',
             padding: '32px',
-            boxShadow: 'var(--shadow-md)',
-            width: '100%',
-            maxWidth: '400px'
+            width: '90%',
+            maxWidth: '400px',
+            boxShadow: 'var(--shadow-lg)'
           }}>
             <h3 style={{
               fontSize: '20px',
               fontWeight: '600',
-              marginBottom: '16px',
               color: 'var(--text-primary)',
-              textAlign: 'center'
+              marginBottom: '16px'
             }}>
               Create New Chat
             </h3>
-            
-            <div style={{ marginBottom: '20px' }}>
-              <label style={{
-                display: 'block',
-                fontSize: '14px',
-                fontWeight: '500',
-                marginBottom: '8px',
-                color: 'var(--text-primary)'
-              }}>
-                Chat Name
-              </label>
-              <input
-                type="text"
-                value={newRoomName}
-                onChange={(e) => setNewRoomName(e.target.value)}
-                placeholder="e.g., Project Planning, Book Club, etc."
-                style={{
-                  width: '100%',
-                  padding: '12px 16px',
-                  borderRadius: 'var(--radius-sm)',
-                  border: '1px solid var(--border-light)',
-                  fontSize: '16px',
-                  backgroundColor: 'var(--bg-primary)',
-                  color: 'var(--text-primary)'
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    createRoom();
-                  }
-                }}
-                autoFocus
-              />
-            </div>
-            
+            <input
+              type="text"
+              placeholder="Enter chat name..."
+              value={newRoomName}
+              onChange={(e) => setNewRoomName(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && createRoom()}
+              style={{
+                width: '100%',
+                padding: '12px',
+                borderRadius: 'var(--radius-sm)',
+                border: '1px solid var(--border-light)',
+                fontSize: '16px',
+                marginBottom: '20px'
+              }}
+            />
             <div style={{
               display: 'flex',
               gap: '12px'
@@ -553,7 +704,7 @@ export default function DashboardPage() {
                   flex: 1,
                   padding: '12px 24px',
                   borderRadius: 'var(--radius-sm)',
-                  backgroundColor: 'var(--bg-primary)',
+                  backgroundColor: 'var(--bg-secondary)',
                   color: 'var(--text-primary)',
                   fontSize: '16px',
                   fontWeight: '500',
@@ -565,7 +716,7 @@ export default function DashboardPage() {
               </button>
               <button
                 onClick={createRoom}
-                disabled={!newRoomName.trim() || creating}
+                disabled={creating}
                 style={{
                   flex: 1,
                   padding: '12px 24px',
