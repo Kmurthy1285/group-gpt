@@ -22,11 +22,24 @@ export async function signInWithGoogle() {
   const supabase = supabaseClient();
   
   // Determine the correct redirect URL based on environment
-  const redirectTo = typeof window !== 'undefined' 
-    ? `${window.location.origin}/auth/callback`
-    : process.env.NEXT_PUBLIC_SITE_URL 
+  let redirectTo: string;
+  
+  if (typeof window !== 'undefined') {
+    // If we're in the browser, check if we're on localhost
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      redirectTo = 'http://localhost:3000/auth/callback';
+    } else {
+      // Production - use the current domain
+      redirectTo = `${window.location.origin}/auth/callback`;
+    }
+  } else {
+    // Server-side fallback
+    redirectTo = process.env.NEXT_PUBLIC_SITE_URL 
       ? `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`
       : 'http://localhost:3000/auth/callback';
+  }
+  
+  console.log('OAuth redirect URL:', redirectTo); // Debug log
   
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
