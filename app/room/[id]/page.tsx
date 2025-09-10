@@ -149,8 +149,10 @@ export default function RoomPage() {
     const channel = supabase
       .channel(`room:${id}`)
       .on("broadcast", { event: "typing" }, (payload) => {
+        console.log('Typing event received:', payload.payload);
         const { user_name, is_typing } = payload.payload;
         if (user_name !== profile?.display_name) { // Don't show our own typing
+          console.log(`Updating typing users: ${user_name} is ${is_typing ? 'typing' : 'not typing'}`);
           setTypingUsers(prev => {
             if (is_typing) {
               return prev.includes(user_name) ? prev : [...prev, user_name];
@@ -358,8 +360,9 @@ export default function RoomPage() {
   const sendTypingEvent = (isTyping: boolean) => {
     if (!profile?.display_name) return;
     
+    console.log(`Sending typing event: ${profile.display_name} is ${isTyping ? 'typing' : 'not typing'}`);
     const supabase = supabaseClient();
-    const channel = supabase.channel(`typing:${id}`);
+    const channel = supabase.channel(`room:${id}`);
     channel.send({
       type: 'broadcast',
       event: 'typing',
